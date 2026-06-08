@@ -1,41 +1,168 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# ============================================
+# DEPENDENCIES
+# ============================================
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# ============================================
+# NEXT.JS BUILD OUTPUT
+# ============================================
+.next/
+out/
+build/
+dist/
+.next/
 
-# vercel
-.vercel
+# ============================================
+# PRODUCTION
+# ============================================
+*.sqlite
+*.sqlite3
+*.db
 
-# typescript
+# ============================================
+# ENVIRONMENT VARIABLES
+# ============================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# ============================================
+# DATABASE
+# ============================================
+*.db
+*.db-journal
+*.sql
+*.sqlite
+*.sqlite3
+pgdata/
+postgres-data/
+migrations/*.sql
+!migrations/README.md
+
+# ============================================
+# LOGS
+# ============================================
+logs/
+*.log
+log.txt
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ============================================
+# RUNTIME DATA
+# ============================================
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ============================================
+# COVERAGE DIRECTORY
+# ============================================
+coverage/
+*.lcov
+.nyc_output/
+
+# ============================================
+# TYPESCRIPT CACHE
+# ============================================
 *.tsbuildinfo
-next-env.d.ts
+*.tscache
+.next/cache
+
+# ============================================
+# OS FILES
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============================================
+# IDE FILES
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================
+# PROJECT SPECIFIC
+# ============================================
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Backup files
+*.bak
+*.backup
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+
+# Debug files
+debug.log
+
+# Local development files
+.DS_Store
+local-dev/
+test-results/
+
+# Upload directories
+uploads/
+temp-uploads/
+
+# Reports cache
+.reports-cache/
+
+# Session data
+sessions/
+
+# ============================================
+# SECURITY
+# ============================================
+# Secrets and keys
+*.pem
+*.key
+*.crt
+*.secret
+secrets/
+keys/
+.credentials/
+*.p12
+
+# ============================================
+# MISC
+# ============================================
+*.tgz
+*.gz
+*.7z
+*.rar
+*.zip
