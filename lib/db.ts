@@ -23,7 +23,7 @@ if (typeof window !== 'undefined') {
   );
 }
 
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 let pool: Pool | null = null;
 let isShuttingDown: boolean = false;
@@ -93,7 +93,11 @@ export async function testConnection(): Promise<{ success: boolean; data?: any; 
   }
 }
 
-export async function query<T = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+// Fixed: T must extend QueryResultRow
+export async function query<T extends QueryResultRow = any>(
+  text: string, 
+  params?: any[]
+): Promise<QueryResult<T>> {
   const db = getDb();
   try {
     return await db.query<T>(text, params);
@@ -103,7 +107,8 @@ export async function query<T = any>(text: string, params?: any[]): Promise<Quer
   }
 }
 
-export async function safeQuery<T = any>(
+// Fixed: T must extend QueryResultRow
+export async function safeQuery<T extends QueryResultRow = any>(
   text: string, 
   params?: any[], 
   retries: number = 2
