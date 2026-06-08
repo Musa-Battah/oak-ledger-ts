@@ -118,10 +118,8 @@ export async function safeQuery<T = any>(
       console.error(`Query attempt ${i + 1} failed:`, lastError.message);
       
       if (i < retries) {
-        // Wait before retry: 1 second, 2 seconds
         await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
         
-        // Reset pool on connection error
         if (lastError.message.includes('terminated') || 
             lastError.message.includes('Connection') ||
             lastError.message.includes('closed')) {

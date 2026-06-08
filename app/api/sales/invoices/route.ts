@@ -90,6 +90,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       LIMIT 1
     `);
     
+    let arAccountId: string;
+    
     if (arResult.rows.length === 0) {
       const newId = uuidv4();
       await client.query(
@@ -97,7 +99,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
          VALUES ($1, $2, $3, $4, $5, true)`,
         [newId, '1040', 'Accounts Receivable', 'Asset', 'debit']
       );
-      arResult = { rows: [{ id: newId }] };
+      arAccountId = newId;
+    } else {
+      arAccountId = arResult.rows[0].id;
     }
     
     // Find Revenue account - USE CORRECT REVENUE ACCOUNT
@@ -107,6 +111,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       LIMIT 1
     `);
     
+    let revenueAccountId: string;
+    
     if (revenueResult.rows.length === 0) {
       const newId = uuidv4();
       await client.query(
@@ -114,11 +120,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
          VALUES ($1, $2, $3, $4, $5, true)`,
         [newId, '4000', 'Sales Revenue', 'Revenue', 'credit']
       );
-      revenueResult = { rows: [{ id: newId }] };
+      revenueAccountId = newId;
+    } else {
+      revenueAccountId = revenueResult.rows[0].id;
     }
-    
-    const arAccountId = arResult.rows[0].id;
-    const revenueAccountId = revenueResult.rows[0].id;
     
     // Debit: Accounts Receivable
     await client.query(

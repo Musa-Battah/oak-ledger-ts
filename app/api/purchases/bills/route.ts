@@ -79,6 +79,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       LIMIT 1
     `);
     
+    let expenseAccountId: string;
+    
     if (expenseResult.rows.length === 0) {
       const newId = uuidv4();
       await client.query(
@@ -86,7 +88,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
          VALUES ($1, $2, $3, $4, $5, true)`,
         [newId, '5000', 'Cost of Goods Sold', 'Expense', 'debit']
       );
-      expenseResult = { rows: [{ id: newId }] };
+      expenseAccountId = newId;
+    } else {
+      expenseAccountId = expenseResult.rows[0].id;
     }
     
     // Find Accounts Payable
@@ -96,6 +100,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       LIMIT 1
     `);
     
+    let apAccountId: string;
+    
     if (apResult.rows.length === 0) {
       const newId = uuidv4();
       await client.query(
@@ -103,11 +109,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
          VALUES ($1, $2, $3, $4, $5, true)`,
         [newId, '2000', 'Accounts Payable', 'Liability', 'credit']
       );
-      apResult = { rows: [{ id: newId }] };
+      apAccountId = newId;
+    } else {
+      apAccountId = apResult.rows[0].id;
     }
-    
-    const expenseAccountId = expenseResult.rows[0].id;
-    const apAccountId = apResult.rows[0].id;
     
     // Debit: Expense
     await client.query(
