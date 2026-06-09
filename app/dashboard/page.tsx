@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import toast from 'react-hot-toast';
+import { useLoading } from '@/hooks/useLoading';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -23,7 +26,8 @@ interface RecentInvoice {
   date: string;
 }
 
-export default function Dashboard(): React.ReactElement {
+export default function DashboardPage() {
+  const { isLoading, error, withLoading } = useLoading(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
     outstandingInvoices: 0,
@@ -34,41 +38,55 @@ export default function Dashboard(): React.ReactElement {
     totalSuppliers: 0
   });
   const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = async (): Promise<void> => {
-    try {
-      const [statsRes, invoicesRes] = await Promise.all([
-        fetch('/api/sales/stats'),
-        fetch('/api/sales/invoices?limit=5')
-      ]);
-      
-      const statsData = await statsRes.json();
-      const invoicesData = await invoicesRes.json();
-      
-      if (statsData.success) {
-        setStats(statsData.data);
+  const fetchDashboardData = async () => {
+    await withLoading(async () => {
+      try {
+        const [statsRes, invoicesRes] = await Promise.all([
+          fetch('/api/sales/stats'),
+          fetch('/api/sales/invoices?limit=5')
+        ]);
+        
+        if (!statsRes.ok) throw new Error('Failed to fetch stats');
+        if (!invoicesRes.ok) throw new Error('Failed to fetch invoices');
+        
+        const statsData = await statsRes.json();
+        const invoicesData = await invoicesRes.json();
+        
+        if (statsData.success) {
+          setStats(statsData.data);
+        } else {
+          throw new Error(statsData.error || 'Stats fetch failed');
+        }
+        
+        if (invoicesData.success) {
+          setRecentInvoices(invoicesData.data || []);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Error loading dashboard';
+        toast.error(message);
+        throw err;
       }
-      if (invoicesData.success) {
-        setRecentInvoices(invoicesData.data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
-  if (loading) {
+  if (isLoading) {
+    return <SkeletonLoader type="card" rows={4} />;
+  }
+
+  if (error) {
     return (
-      <div>
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <p>Loading dashboard...</p>
-        </div>
+      <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+        <div className="error-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+        <h2>Unable to Load Dashboard</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>{error}</p>
+        <button className="btn-primary" onClick={() => window.location.reload()}>
+          Retry
+        </button>
       </div>
     );
   }
@@ -118,7 +136,7 @@ export default function Dashboard(): React.ReactElement {
           </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="dashboard-table">
               <thead>
                 <tr>
                   <th>Invoice #</th>
@@ -134,7 +152,7 @@ export default function Dashboard(): React.ReactElement {
                   <tr key={invoice.id}>
                     <td>{invoice.invoice_number}</td>
                     <td>{invoice.customer_name}</td>
-                    <td>{format(new Date(invoice.date), 'MMM dd, yyyy')}</td>
+                    <td>{new Date(invoice.date).toLocaleDateString()}</td>
                     <td>₦{invoice.total.toLocaleString()}</td>
                     <td>
                       <span className={`badge badge-${invoice.status}`}>
@@ -143,7 +161,9 @@ export default function Dashboard(): React.ReactElement {
                     </td>
                     <td>
                       <Link href={`/sales/invoices/${invoice.id}`}>
-                        <button className="btn-secondary">View</button>
+                        <button className="btn-secondary" style={{ padding: '0.25rem 0.75rem' }}>
+                          View
+                        </button>
                       </Link>
                     </td>
                   </tr>
@@ -153,6 +173,27 @@ export default function Dashboard(): React.ReactElement {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .dashboard-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .dashboard-table th,
+        .dashboard-table td {
+          padding: 0.875rem;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .dashboard-table th {
+          background: var(--bg-tertiary);
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+      `}</style>
     </div>
   );
 }
+
+// Add useState import at top
+import { useState } from 'react';
