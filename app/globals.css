@@ -1678,3 +1678,137 @@ select.btn-secondary {
 .retry-button {
   margin-top: 1rem;
 }
+
+/* Error Boundary Styles */
+.error-boundary-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.error-boundary-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 500px;
+  margin: 1rem;
+}
+
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-boundary-content h2 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.error-boundary-content p {
+  margin-bottom: 1.5rem;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.error-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.error-actions button {
+  margin: 0;
+}
+
+/* Loading Spinner */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.loading-text {
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Skeleton Loader Styles */
+.skeleton-table,
+.skeleton-card,
+.skeleton-form {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.skeleton-header, .skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.skeleton-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.skeleton-line {
+  height: 20px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-form {
+  padding: 1.5rem;
+}
+
+.skeleton-field {
+  margin-bottom: 1rem;
+}
+
+.skeleton-label {
+  width: 100px;
+  height: 14px;
+  background: var(--bg-tertiary);
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+}
+
+.skeleton-input {
+  height: 42px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+}
+
+.skeleton-header-line {
+  height: 24px;
+  width: 60%;
+  background: var(--bg-tertiary);
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
