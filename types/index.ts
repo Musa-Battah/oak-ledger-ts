@@ -402,3 +402,34 @@ export interface ReportFilter {
   accountType?: string;
 }
 
+// ============================================
+// PAYMENT TYPES
+// ============================================
+
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'card' | 'other';
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+
+export interface Payment {
+  id: string;
+  payment_number: string;
+  invoice_id?: string;
+  bill_id?: string;
+  customer_id?: string;
+  supplier_id?: string;
+  payment_date: Date;
+  amount: number;
+  payment_method: PaymentMethod;
+  reference_number?: string;
+  notes?: string;
+  status: PaymentStatus;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PaymentFormData {
+  payment_date: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  reference_number?: string;
+  notes?: string;
+}
