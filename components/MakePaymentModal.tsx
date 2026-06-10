@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-interface ReceivePaymentModalProps {
-  invoiceId: string;
-  invoiceNumber: string;
-  customerName: string;
+interface MakePaymentModalProps {
+  billId: string;
+  billNumber: string;
+  supplierName: string;
   totalAmount: number;
   amountPaid: number;
   balanceDue: number;
@@ -14,16 +14,16 @@ interface ReceivePaymentModalProps {
   onSuccess: () => void;
 }
 
-export default function ReceivePaymentModal({
-  invoiceId,
-  invoiceNumber,
-  customerName,
+export default function MakePaymentModal({
+  billId,
+  billNumber,
+  supplierName,
   totalAmount,
   amountPaid,
   balanceDue,
   onClose,
   onSuccess
-}: ReceivePaymentModalProps) {
+}: MakePaymentModalProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     amount: balanceDue,
@@ -53,7 +53,7 @@ export default function ReceivePaymentModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          invoice_id: invoiceId,
+          bill_id: billId,
           payment_date: formData.payment_date,
           amount: formData.amount,
           payment_method: formData.payment_method,
@@ -82,14 +82,14 @@ export default function ReceivePaymentModal({
     <div className="modal-overlay">
       <div className="modal-container">
         <div className="modal-header">
-          <h2>Receive Payment</h2>
+          <h2>Make Payment</h2>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         
         <div className="modal-body">
           <div className="payment-details">
-            <p><strong>Invoice:</strong> {invoiceNumber}</p>
-            <p><strong>Customer:</strong> {customerName}</p>
+            <p><strong>Bill:</strong> {billNumber}</p>
+            <p><strong>Supplier:</strong> {supplierName}</p>
             <p><strong>Total Amount:</strong> ₦{totalAmount.toLocaleString()}</p>
             <p><strong>Amount Paid:</strong> ₦{amountPaid.toLocaleString()}</p>
             <p><strong>Balance Due:</strong> ₦{balanceDue.toLocaleString()}</p>
@@ -158,7 +158,7 @@ export default function ReceivePaymentModal({
                 Cancel
               </button>
               <button type="submit" className="btn-primary" disabled={loading}>
-                {loading ? 'Processing...' : 'Record Payment'}
+                {loading ? 'Processing...' : 'Make Payment'}
               </button>
             </div>
           </form>

@@ -1812,3 +1812,188 @@ select.btn-secondary {
   100% { background-position: -200% 0; }
 }
 
+/* ============================================
+   MODAL STYLES
+   ============================================ */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-container {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.payment-details {
+  background: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.payment-details p {
+  margin: 0.25rem 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* Make sure form-group has proper spacing in modals */
+.modal-body .form-group {
+  margin-bottom: 1rem;
+}
+
+.modal-body small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+/* Invoice/Bill Details Page Styles */
+.invoice-status,
+.bill-status {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.status-badge.sent,
+.status-badge.received {
+  background: var(--warning-dim);
+  color: var(--warning);
+}
+
+.status-badge.paid {
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+.paid-badge {
+  padding: 0.5rem 1rem;
+  background: var(--success-dim);
+  color: var(--success);
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.invoice-grid,
+.bill-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.detail-item label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  display: block;
+}
+
+.detail-item p {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+.detail-item .total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.detail-item .paid {
+  color: var(--success);
+}
+
+.detail-item .balance.due {
+  color: var(--danger);
+}
+
+.notes {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.notes label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.total-row {
+  background: var(--bg-tertiary);
+}
+
+.total-row td {
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

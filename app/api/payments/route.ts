@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { Payment, ApiResponse } from '@/types';
+import { ApiResponse } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
-export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<Payment[]>>> {
+export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<any[]>>> {
   try {
     const { searchParams } = new URL(request.url);
     const invoiceId = searchParams.get('invoiceId');
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     
     sql += ` ORDER BY p.payment_date DESC`;
     
-    const result = await query<Payment>(sql, params);
+    const result = await query(sql, params);
     
     return NextResponse.json({
       success: true,
@@ -63,7 +63,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
   try {
     await client.query('BEGIN');
     
-    const { invoice_id, bill_id, payment_date, amount, payment_method, reference_number, notes } = await request.json();
+    const body = await request.json();
+    const { invoice_id, bill_id, payment_date, amount, payment_method, reference_number, notes } = body;
     
     if (!invoice_id && !bill_id) {
       return NextResponse.json({
@@ -101,7 +102,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       documentPaid = parseFloat(invoice.rows[0].paid);
       customerId = invoice.rows[0].customer_id;
       
-      // Check if payment exceeds balance
       if (documentPaid + amount > documentTotal) {
         throw new Error(`Payment amount exceeds invoice balance. Balance due: ${documentTotal - documentPaid}`);
       }
@@ -141,55 +141,116 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     
     if (invoice_id) {
       // For invoice payment: Debit Cash/Bank, Credit Accounts Receivable
-      const cashAccount = await client.query(`
-        SELECT id FROM accounts WHERE code = '1010' AND type = 'Asset' LIMIT 1
-      `);
-      const arAccount = await client.query(`
-        SELECT id FROM accounts WHERE code = '1040' AND type = 'Asset' LIMIT 1
+      // Find cash account
+      let cashAccountId: string;
+      const cashResult = await client.query(`
+        SELECT id FROM accounts 
+        WHERE (code = '1010' OR code = '1020' OR name ILIKE '%cash%' OR name ILIKE '%bank%') 
+        AND type = 'Asset' 
+        LIMIT 1
       `);
       
-      if (cashAccount.rows.length === 0 || arAccount.rows.length === 0) {
-        throw new Error('Required accounts not found');
+      if (cashResult.rows.length === 0) {
+        const newId = uuidv4();
+        await client.query(
+          `INSERT INTO accounts (id, code, name, type, normal_balance, is_active)
+           VALUES ($1, $2, $3, $4, $5, true)`,
+          [newId, '1010', 'Cash', 'Asset', 'debit']
+        );
+        cashAccountId = newId;
+      } else {
+        cashAccountId = cashResult.rows[0].id;
+      }
+      
+      // Find accounts receivable account
+      let arAccountId: string;
+      const arResult = await client.query(`
+        SELECT id FROM accounts 
+        WHERE code = '1040' AND type = 'Asset' 
+        LIMIT 1
+      `);
+      
+      if (arResult.rows.length === 0) {
+        const newId = uuidv4();
+        await client.query(
+          `INSERT INTO accounts (id, code, name, type, normal_balance, is_active)
+           VALUES ($1, $2, $3, $4, $5, true)`,
+          [newId, '1040', 'Accounts Receivable', 'Asset', 'debit']
+        );
+        arAccountId = newId;
+      } else {
+        arAccountId = arResult.rows[0].id;
       }
       
       // Debit: Cash/Bank
       await client.query(
         `INSERT INTO journal_entries (id, transaction_id, account_id, amount, type)
          VALUES ($1, $2, $3, $4, 'debit')`,
-        [uuidv4(), transactionId, cashAccount.rows[0].id, amount]
+        [uuidv4(), transactionId, cashAccountId, amount]
       );
       
       // Credit: Accounts Receivable
       await client.query(
         `INSERT INTO journal_entries (id, transaction_id, account_id, amount, type)
          VALUES ($1, $2, $3, $4, 'credit')`,
-        [uuidv4(), transactionId, arAccount.rows[0].id, amount]
+        [uuidv4(), transactionId, arAccountId, amount]
       );
+      
     } else if (bill_id) {
       // For bill payment: Debit Accounts Payable, Credit Cash/Bank
-      const cashAccount = await client.query(`
-        SELECT id FROM accounts WHERE code = '1010' AND type = 'Asset' LIMIT 1
-      `);
-      const apAccount = await client.query(`
-        SELECT id FROM accounts WHERE code = '2000' AND type = 'Liability' LIMIT 1
+      // Find cash account
+      let cashAccountId: string;
+      const cashResult = await client.query(`
+        SELECT id FROM accounts 
+        WHERE (code = '1010' OR code = '1020' OR name ILIKE '%cash%' OR name ILIKE '%bank%') 
+        AND type = 'Asset' 
+        LIMIT 1
       `);
       
-      if (cashAccount.rows.length === 0 || apAccount.rows.length === 0) {
-        throw new Error('Required accounts not found');
+      if (cashResult.rows.length === 0) {
+        const newId = uuidv4();
+        await client.query(
+          `INSERT INTO accounts (id, code, name, type, normal_balance, is_active)
+           VALUES ($1, $2, $3, $4, $5, true)`,
+          [newId, '1010', 'Cash', 'Asset', 'debit']
+        );
+        cashAccountId = newId;
+      } else {
+        cashAccountId = cashResult.rows[0].id;
+      }
+      
+      // Find accounts payable account
+      let apAccountId: string;
+      const apResult = await client.query(`
+        SELECT id FROM accounts 
+        WHERE code = '2000' AND type = 'Liability' 
+        LIMIT 1
+      `);
+      
+      if (apResult.rows.length === 0) {
+        const newId = uuidv4();
+        await client.query(
+          `INSERT INTO accounts (id, code, name, type, normal_balance, is_active)
+           VALUES ($1, $2, $3, $4, $5, true)`,
+          [newId, '2000', 'Accounts Payable', 'Liability', 'credit']
+        );
+        apAccountId = newId;
+      } else {
+        apAccountId = apResult.rows[0].id;
       }
       
       // Debit: Accounts Payable
       await client.query(
         `INSERT INTO journal_entries (id, transaction_id, account_id, amount, type)
          VALUES ($1, $2, $3, $4, 'debit')`,
-        [uuidv4(), transactionId, apAccount.rows[0].id, amount]
+        [uuidv4(), transactionId, apAccountId, amount]
       );
       
       // Credit: Cash/Bank
       await client.query(
         `INSERT INTO journal_entries (id, transaction_id, account_id, amount, type)
          VALUES ($1, $2, $3, $4, 'credit')`,
-        [uuidv4(), transactionId, cashAccount.rows[0].id, amount]
+        [uuidv4(), transactionId, cashAccountId, amount]
       );
     }
     
