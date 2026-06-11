@@ -92,6 +92,32 @@ export default function BillDetailsPage() {
     }
   };
 
+  const handleVoid = async () => {
+  const reason = prompt('Please enter a reason for voiding this bill:');
+  if (!reason) return;
+  
+  if (confirm('Are you sure you want to void this bill? This action cannot be undone.')) {
+    try {
+      const res = await fetch(`/api/purchases/bills/${params.id}?reason=${encodeURIComponent(reason)}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast.success('Bill voided successfully');
+        router.push('/purchases/bills');
+      } else {
+        toast.error(data.error || 'Failed to void bill');
+      }
+    } catch (error) {
+      toast.error('Error voiding bill');
+    }
+  }
+};
+
+
+
   if (loading) {
     return (
       <div className="container">
@@ -124,16 +150,28 @@ export default function BillDetailsPage() {
           <h1>Bill {bill.bill_number}</h1>
           <p>{bill.supplier_name}</p>
         </div>
+        
         <div className="action-buttons">
-          <Link href="/purchases/bills">
-            <button className="btn-secondary">Back</button>
-          </Link>
-          {!isFullyPaid && bill.status !== 'cancelled' && (
-            <button className="btn-primary" onClick={() => setShowPaymentModal(true)}>
-              Make Payment
-            </button>
-          )}
-        </div>
+            <Link href="/purchases/bills">
+              <button className="btn-secondary">Back</button>
+            </Link>
+            {!isFullyPaid && bill.status !== 'cancelled' && bill.status !== 'void' && (
+              <>
+                <Link href={`/purchases/bills/${bill.id}/edit`}>
+                  <button className="btn-secondary">Edit</button>
+                </Link>
+                <button className="btn-primary" onClick={() => setShowPaymentModal(true)}>
+                  Make Payment
+                </button>
+              </>
+            )}
+            {bill.status !== 'void' && bill.status !== 'paid' && (
+              <button className="btn-danger" onClick={handleVoid}>
+                Void Bill
+              </button>
+            )}
+          </div>
+
       </div>
 
       <div className="bill-status">

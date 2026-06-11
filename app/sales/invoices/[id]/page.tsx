@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -84,6 +85,32 @@ export default function InvoiceDetailsPage() {
     fetchPayments();
   };
 
+  const handleVoid = async () => {
+  const reason = prompt('Please enter a reason for voiding this invoice:');
+  if (!reason) return;
+  
+  if (confirm('Are you sure you want to void this invoice? This action cannot be undone.')) {
+    try {
+      const res = await fetch(`/api/sales/invoices/${params.id}?reason=${encodeURIComponent(reason)}`, {
+        method: 'DELETE'
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast.success('Invoice voided successfully');
+        router.push('/sales/invoices');
+      } else {
+        toast.error(data.error || 'Failed to void invoice');
+      }
+    } catch (error) {
+      toast.error('Error voiding invoice');
+    }
+  }
+};
+
+
+
   if (loading) {
     return (
       <div className="container">
@@ -116,17 +143,27 @@ export default function InvoiceDetailsPage() {
           <h1>Invoice {invoice.invoice_number}</h1>
           <p>{invoice.customer_name}</p>
         </div>
-        <div className="action-buttons">
-          <Link href="/sales/invoices">
-            <button className="btn-secondary">Back</button>
-          </Link>
-          {!isFullyPaid && invoice.status !== 'cancelled' && (
-            <button className="btn-primary" onClick={() => setShowPaymentModal(true)}>
-              Receive Payment
-            </button>
-          )}
-        </div>
-      </div>
+                <div className="action-buttons">
+                  <Link href="/sales/invoices">
+                    <button className="btn-secondary">Back</button>
+                  </Link>
+                  {!isFullyPaid && invoice.status !== 'cancelled' && invoice.status !== 'void' && (
+                    <>
+                      <Link href={`/sales/invoices/${invoice.id}/edit`}>
+                        <button className="btn-secondary">Edit</button>
+                      </Link>
+                      <button className="btn-primary" onClick={() => setShowPaymentModal(true)}>
+                        Receive Payment
+                      </button>
+                    </>
+                  )}
+                  {invoice.status !== 'void' && invoice.status !== 'paid' && (
+                    <button className="btn-danger" onClick={handleVoid}>
+                      Void Invoice
+                    </button>
+                  )}
+                </div>  
+                    </div>
 
       <div className="invoice-status">
         <div className={`status-badge ${invoice.status}`}>
