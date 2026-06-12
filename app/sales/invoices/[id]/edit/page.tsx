@@ -4,16 +4,20 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface Customer {
   id: string;
   name: string;
+  email?: string | null;
+  phone?: string | null;
 }
 
 interface Product {
   id: string;
   name: string;
   unit_price: number;
+  sku?: string | null;
 }
 
 interface InvoiceItem {
@@ -21,6 +25,7 @@ interface InvoiceItem {
   quantity: number;
   unit_price: number;
   amount: number;
+  product_id?: string;
 }
 
 export default function EditInvoicePage() {
@@ -69,7 +74,8 @@ export default function EditInvoicePage() {
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          amount: item.amount
+          amount: item.amount,
+          product_id: item.product_id || ''
         }))
       });
       
@@ -87,6 +93,53 @@ export default function EditInvoicePage() {
     }
   };
 
+  const handleAddCustomer = async (name: string): Promise<Customer> => {
+    const res = await fetch('/api/sales/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        const refreshRes = await fetch('/api/sales/customers');
+        const refreshData = await refreshRes.json();
+        if (refreshData.success) {
+          setCustomers(refreshData.data || []);
+        }
+        toast.success(`Customer "${name}" added successfully`);
+        return data.data;
+      }
+    }
+    throw new Error('Failed to add customer');
+  };
+
+  const handleAddProduct = async (name: string, additionalData?: { unit_price: number }): Promise<Product> => {
+    const res = await fetch('/api/sales/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name, 
+        unit_price: additionalData?.unit_price || 0 
+      })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        const refreshRes = await fetch('/api/sales/products');
+        const refreshData = await refreshRes.json();
+        if (refreshData.success) {
+          setProducts(refreshData.data || []);
+        }
+        toast.success(`Product "${name}" added successfully`);
+        return data.data;
+      }
+    }
+    throw new Error('Failed to add product');
+  };
+
   const calculateTotals = (): { subtotal: number; tax: number; total: number } => {
     const subtotal = formData.items.reduce((sum, item) => sum + (item.amount || 0), 0);
     const tax = subtotal * 0.075;
@@ -97,7 +150,7 @@ export default function EditInvoicePage() {
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { description: '', quantity: 1, unit_price: 0, amount: 0 }]
+      items: [...formData.items, { description: '', quantity: 1, unit_price: 0, amount: 0, product_id: '' }]
     });
   };
 
@@ -121,6 +174,18 @@ export default function EditInvoicePage() {
     setFormData({ ...formData, items: newItems });
   };
 
+  const handleProductSelect = (index: number, productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      const newItems = [...formData.items];
+      newItems[index].product_id = product.id;
+      newItems[index].description = product.name;
+      newItems[index].unit_price = product.unit_price;
+      newItems[index].amount = newItems[index].quantity * product.unit_price;
+      setFormData({ ...formData, items: newItems });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -138,7 +203,7 @@ export default function EditInvoicePage() {
     
     try {
       const totals = calculateTotals();
-      const res = await fetch(`/api/sales/invoices/${params.id}`, {
+      const res = await fetch('/api/sales/invoices', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +212,12 @@ export default function EditInvoicePage() {
           date: formData.date,
           due_date: formData.due_date,
           notes: formData.notes,
-          items: formData.items,
+          items: formData.items.map(({ description, quantity, unit_price, amount }) => ({
+            description,
+            quantity,
+            unit_price,
+            amount
+          })),
           subtotal: totals.subtotal,
           tax: totals.tax,
           total: totals.total
@@ -175,7 +245,7 @@ export default function EditInvoicePage() {
     
     if (confirm('Are you sure you want to void this invoice? This action cannot be undone.')) {
       try {
-        const res = await fetch(`/api/sales/invoices/${params.id}?reason=${encodeURIComponent(reason)}`, {
+        const res = await fetch(`/api/sales/invoices?id=${params.id}&reason=${encodeURIComponent(reason)}`, {
           method: 'DELETE'
         });
         
@@ -225,18 +295,15 @@ export default function EditInvoicePage() {
             <h3 className="form-section-title">Customer Information</h3>
             <div className="form-group">
               <label>Select Customer *</label>
-              <select
+              <SearchableSelect
+                options={customers}
                 value={formData.customer_id}
-                onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                required
-              >
-                <option value="">Choose a customer...</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(id) => setFormData({ ...formData, customer_id: id })}
+                onAddNew={handleAddCustomer}
+                placeholder="Search or add customer..."
+                addNewLabel="+ Add New Customer"
+                entityType="customer"
+              />
             </div>
           </div>
 
@@ -270,23 +337,32 @@ export default function EditInvoicePage() {
               <table className="items-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '40%' }}>Description</th>
+                    <th style={{ width: '35%' }}>Product / Service</th>
                     <th style={{ width: '15%' }}>Quantity</th>
                     <th style={{ width: '20%' }}>Unit Price (₦)</th>
                     <th style={{ width: '20%' }}>Amount (₦)</th>
-                    <th style={{ width: '5%' }}></th>
+                    <th style={{ width: '10%' }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {formData.items.map((item, index) => (
                     <tr key={index}>
                       <td>
+                        <SearchableSelect
+                          options={products}
+                          value={item.product_id || ''}
+                          onChange={(productId) => handleProductSelect(index, productId)}
+                          onAddNew={handleAddProduct}
+                          placeholder="Search or add product..."
+                          addNewLabel="+ Add New Product"
+                          entityType="product"
+                        />
                         <input
                           type="text"
                           value={item.description}
                           onChange={(e) => updateItem(index, 'description', e.target.value)}
-                          placeholder="Item description"
-                          style={{ width: '100%' }}
+                          placeholder="Or type description manually"
+                          style={{ width: '100%', marginTop: '0.5rem' }}
                         />
                       </td>
                       <td>
@@ -317,8 +393,9 @@ export default function EditInvoicePage() {
                           type="button"
                           onClick={() => removeItem(index)}
                           className="btn-danger"
+                          style={{ padding: '0.25rem 0.5rem' }}
                         >
-                          Remove
+                          ✕
                         </button>
                       </td>
                     </tr>

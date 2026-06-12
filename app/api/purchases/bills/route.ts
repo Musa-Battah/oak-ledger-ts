@@ -129,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     
     // Log audit
     await client.query(
-      `INSERT INTO audit_logs (id, action, entity_type, entity_id, new_data, created_at)
+      `INSERT INTO audit_logs (id, action, entity_type, entity_id, details, created_at)
        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
       [uuidv4(), 'CREATE', 'bill', billId, JSON.stringify({ billNumber, total, supplier_id })]
     );
@@ -166,7 +166,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
     
     // Check if bill exists and can be edited
     const existingBill = await client.query(
-      'SELECT status, total, bill_number FROM bills WHERE id = $1',
+      'SELECT status, total, bill_number, supplier_id FROM bills WHERE id = $1',
       [id]
     );
     
@@ -186,8 +186,8 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
     
     // Get existing journal entries to reverse
     const existingTransaction = await client.query(
-      'SELECT id FROM transactions WHERE reference_number = $1 AND type = $2',
-      [bill.bill_number, 'bill']
+      'SELECT id FROM transactions WHERE reference_number = $1 AND type = $2 AND status = $3',
+      [bill.bill_number, 'bill', 'posted']
     );
     
     if (existingTransaction.rows.length > 0) {
@@ -296,9 +296,9 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
     
     // Log audit
     await client.query(
-      `INSERT INTO audit_logs (id, action, entity_type, entity_id, old_data, new_data, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
-      [uuidv4(), 'EDIT', 'bill', id, JSON.stringify(bill), JSON.stringify({ total, supplier_id })]
+      `INSERT INTO audit_logs (id, action, entity_type, entity_id, details, created_at)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+      [uuidv4(), 'EDIT', 'bill', id, JSON.stringify({ old_total: bill.total, new_total: total, supplier_id })]
     );
     
     await client.query('COMMIT');
@@ -403,9 +403,9 @@ export async function DELETE(request: NextRequest): Promise<NextResponse<ApiResp
     );
     
     await client.query(
-      `INSERT INTO audit_logs (id, action, entity_type, entity_id, reason, created_at)
-       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
-      [uuidv4(), 'VOID', 'bill', id, reason]
+      `INSERT INTO audit_logs (id, action, entity_type, entity_id, reason, details, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+      [uuidv4(), 'VOID', 'bill', id, reason, JSON.stringify({ bill_number: bill.bill_number })]
     );
     
     await client.query('COMMIT');

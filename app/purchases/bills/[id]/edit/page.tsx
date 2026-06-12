@@ -4,10 +4,20 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import SearchableSelect from '@/components/SearchableSelect';
 
 interface Supplier {
   id: string;
   name: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  unit_price: number;
+  sku?: string | null;
 }
 
 interface BillItem {
@@ -15,12 +25,14 @@ interface BillItem {
   quantity: number;
   unit_price: number;
   amount: number;
+  product_id?: string;
 }
 
 export default function EditBillPage() {
   const params = useParams();
   const router = useRouter();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -37,13 +49,15 @@ export default function EditBillPage() {
 
   const fetchData = async () => {
     try {
-      const [billRes, suppliersRes] = await Promise.all([
+      const [billRes, suppliersRes, productsRes] = await Promise.all([
         fetch(`/api/purchases/bills/${params.id}`),
-        fetch('/api/purchases/suppliers')
+        fetch('/api/purchases/suppliers'),
+        fetch('/api/sales/products')
       ]);
       
       const billData = await billRes.json();
       const suppliersData = await suppliersRes.json();
+      const productsData = await productsRes.json();
       
       if (!billData.success) {
         throw new Error(billData.error);
@@ -60,12 +74,16 @@ export default function EditBillPage() {
           description: item.description,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          amount: item.amount
+          amount: item.amount,
+          product_id: item.product_id || ''
         }))
       });
       
       if (suppliersData.success) {
         setSuppliers(suppliersData.data || []);
+      }
+      if (productsData.success) {
+        setProducts(productsData.data || []);
       }
     } catch (error) {
       toast.error('Error loading bill data');
@@ -73,6 +91,53 @@ export default function EditBillPage() {
     } finally {
       setInitialLoading(false);
     }
+  };
+
+  const handleAddSupplier = async (name: string): Promise<Supplier> => {
+    const res = await fetch('/api/purchases/suppliers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        const refreshRes = await fetch('/api/purchases/suppliers');
+        const refreshData = await refreshRes.json();
+        if (refreshData.success) {
+          setSuppliers(refreshData.data || []);
+        }
+        toast.success(`Supplier "${name}" added successfully`);
+        return data.data;
+      }
+    }
+    throw new Error('Failed to add supplier');
+  };
+
+  const handleAddProduct = async (name: string, additionalData?: { unit_price: number }): Promise<Product> => {
+    const res = await fetch('/api/sales/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name, 
+        unit_price: additionalData?.unit_price || 0 
+      })
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        const refreshRes = await fetch('/api/sales/products');
+        const refreshData = await refreshRes.json();
+        if (refreshData.success) {
+          setProducts(refreshData.data || []);
+        }
+        toast.success(`Product "${name}" added successfully`);
+        return data.data;
+      }
+    }
+    throw new Error('Failed to add product');
   };
 
   const calculateTotals = (): { subtotal: number; tax: number; total: number } => {
@@ -85,7 +150,7 @@ export default function EditBillPage() {
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { description: '', quantity: 1, unit_price: 0, amount: 0 }]
+      items: [...formData.items, { description: '', quantity: 1, unit_price: 0, amount: 0, product_id: '' }]
     });
   };
 
@@ -109,6 +174,18 @@ export default function EditBillPage() {
     setFormData({ ...formData, items: newItems });
   };
 
+  const handleProductSelect = (index: number, productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      const newItems = [...formData.items];
+      newItems[index].product_id = product.id;
+      newItems[index].description = product.name;
+      newItems[index].unit_price = product.unit_price;
+      newItems[index].amount = newItems[index].quantity * product.unit_price;
+      setFormData({ ...formData, items: newItems });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -126,7 +203,7 @@ export default function EditBillPage() {
     
     try {
       const totals = calculateTotals();
-      const res = await fetch(`/api/purchases/bills/${params.id}`, {
+      const res = await fetch('/api/purchases/bills', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -135,7 +212,12 @@ export default function EditBillPage() {
           date: formData.date,
           due_date: formData.due_date,
           notes: formData.notes,
-          items: formData.items,
+          items: formData.items.map(({ description, quantity, unit_price, amount }) => ({
+            description,
+            quantity,
+            unit_price,
+            amount
+          })),
           subtotal: totals.subtotal,
           tax: totals.tax,
           total: totals.total
@@ -154,6 +236,30 @@ export default function EditBillPage() {
       toast.error('Error updating bill');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVoid = async () => {
+    const reason = prompt('Please enter a reason for voiding this bill:');
+    if (!reason) return;
+    
+    if (confirm('Are you sure you want to void this bill? This action cannot be undone.')) {
+      try {
+        const res = await fetch(`/api/purchases/bills?id=${params.id}&reason=${encodeURIComponent(reason)}`, {
+          method: 'DELETE'
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+          toast.success('Bill voided successfully');
+          router.push('/purchases/bills');
+        } else {
+          toast.error(data.error || 'Failed to void bill');
+        }
+      } catch (error) {
+        toast.error('Error voiding bill');
+      }
     }
   };
 
@@ -176,6 +282,11 @@ export default function EditBillPage() {
           <h1>Edit Bill</h1>
           <p>Modify existing bill</p>
         </div>
+        <div className="action-buttons">
+          <button className="btn-danger" onClick={handleVoid}>
+            Void Bill
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -184,18 +295,15 @@ export default function EditBillPage() {
             <h3 className="form-section-title">Supplier Information</h3>
             <div className="form-group">
               <label>Select Supplier *</label>
-              <select
+              <SearchableSelect
+                options={suppliers}
                 value={formData.supplier_id}
-                onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                required
-              >
-                <option value="">Choose a supplier...</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(id) => setFormData({ ...formData, supplier_id: id })}
+                onAddNew={handleAddSupplier}
+                placeholder="Search or add supplier..."
+                addNewLabel="+ Add New Supplier"
+                entityType="supplier"
+              />
             </div>
           </div>
 
@@ -229,23 +337,32 @@ export default function EditBillPage() {
               <table className="items-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '40%' }}>Description</th>
+                    <th style={{ width: '35%' }}>Product / Service</th>
                     <th style={{ width: '15%' }}>Quantity</th>
                     <th style={{ width: '20%' }}>Unit Price (₦)</th>
                     <th style={{ width: '20%' }}>Amount (₦)</th>
-                    <th style={{ width: '5%' }}></th>
+                    <th style={{ width: '10%' }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {formData.items.map((item, index) => (
                     <tr key={index}>
                       <td>
+                        <SearchableSelect
+                          options={products}
+                          value={item.product_id || ''}
+                          onChange={(productId) => handleProductSelect(index, productId)}
+                          onAddNew={handleAddProduct}
+                          placeholder="Search or add product..."
+                          addNewLabel="+ Add New Product"
+                          entityType="product"
+                        />
                         <input
                           type="text"
                           value={item.description}
                           onChange={(e) => updateItem(index, 'description', e.target.value)}
-                          placeholder="Item description"
-                          style={{ width: '100%' }}
+                          placeholder="Or type description manually"
+                          style={{ width: '100%', marginTop: '0.5rem' }}
                         />
                       </td>
                       <td>
@@ -276,8 +393,9 @@ export default function EditBillPage() {
                           type="button"
                           onClick={() => removeItem(index)}
                           className="btn-danger"
+                          style={{ padding: '0.25rem 0.5rem' }}
                         >
-                          Remove
+                          ✕
                         </button>
                       </td>
                     </tr>
