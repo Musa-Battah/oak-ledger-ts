@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useLoading } from '@/hooks/useLoading';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import DashboardCharts from '@/components/DashboardCharts';
 import SkeletonLoader from '@/components/SkeletonLoader';
 
 interface DashboardStats {
@@ -80,19 +80,21 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-        <div className="error-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
-        <h2>Unable to Load Dashboard</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>{error}</p>
-        <button className="btn-primary" onClick={() => window.location.reload()}>
-          Retry
-        </button>
+      <div className="container">
+        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+          <div className="error-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+          <h2>Unable to Load Dashboard</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>{error}</p>
+          <button className="btn-primary" onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="container">
       <div className="page-header">
         <div className="page-title">
           <h1>Dashboard</h1>
@@ -100,6 +102,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Stats Cards */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-title">Total Revenue</div>
@@ -119,6 +122,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Charts Section */}
+      <DashboardCharts />
+
+      {/* Recent Invoices */}
       <div className="card">
         <div className="card-header">
           <h2 className="card-title">Recent Invoices</h2>
@@ -193,7 +200,4 @@ export default function DashboardPage() {
       `}</style>
     </div>
   );
-}
-
-// Add useState import at top
-import { useState } from 'react';
+};

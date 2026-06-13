@@ -2,6 +2,7 @@ import { getProfitLossReport } from '@/lib/data/reports';
 import { formatNaira } from '@/lib/format-client';
 import PeriodSelector from '@/components/PeriodSelector';
 import PrintButton from '@/components/PrintButton';
+import Link from 'next/link';
 
 export const revalidate = 3600;
 
@@ -34,6 +35,9 @@ export default async function ProfitLossPage({ searchParams }: PageProps) {
         <div className="action-buttons" style={{ marginTop: '1rem', textAlign: 'center' }}>
           <PeriodSelector currentPeriod={period} />
           <PrintButton />
+          <Link href={`/api/reports/profit-loss/pdf?period=${period}`} target="_blank">
+            <button className="btn-secondary">📄 Download PDF</button>
+          </Link>
         </div>
       </div>
 

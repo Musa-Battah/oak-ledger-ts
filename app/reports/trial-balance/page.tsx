@@ -1,6 +1,7 @@
 import { getTrialBalanceReport } from '@/lib/data/reports';
 import { formatNaira } from '@/lib/format-client';
 import PrintButton from '@/components/PrintButton';
+import Link from 'next/link';
 
 export const revalidate = 3600;
 
@@ -16,8 +17,11 @@ export default async function TrialBalancePage() {
         <div className="ifrs-report-date">
           As at {new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
-        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+        <div style={{ marginTop: '1rem', textAlign: 'center', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <PrintButton />
+          <Link href="/api/reports/trial-balance/pdf" target="_blank">
+            <button className="btn-secondary">📄 Download PDF</button>
+          </Link>
         </div>
       </div>
 

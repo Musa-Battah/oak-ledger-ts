@@ -1,12 +1,18 @@
 'use client';
 
-
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import ReceivePaymentModal from '@/components/ReceivePaymentModal';
 import { formatNaira } from '@/lib/format-client';
+
+interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+}
 
 interface Invoice {
   id: string;
@@ -21,12 +27,7 @@ interface Invoice {
   balance_due: number;
   status: string;
   notes: string;
-  items: Array<{
-    description: string;
-    quantity: number;
-    unit_price: number;
-    amount: number;
-  }>;
+  items: InvoiceItem[];
 }
 
 interface Payment {
@@ -48,18 +49,21 @@ export default function InvoiceDetailsPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
-    fetchInvoice();
-    fetchPayments();
-  }, []);
+    const id = params?.id as string;
+    if (id) {
+      fetchInvoice(id);
+      fetchPayments(id);
+    }
+  }, [params?.id]);
 
-  const fetchInvoice = async () => {
+  const fetchInvoice = async (id: string) => {
     try {
-      const res = await fetch(`/api/sales/invoices/${params.id}`);
+      const res = await fetch(`/api/sales/invoices/${id}`);
       const data = await res.json();
       if (data.success) {
         setInvoice(data.data);
       } else {
-        toast.error(data.error);
+        toast.error(data.error || 'Failed to fetch invoice');
       }
     } catch (error) {
       toast.error('Error fetching invoice');
@@ -68,12 +72,12 @@ export default function InvoiceDetailsPage() {
     }
   };
 
-  const fetchPayments = async () => {
+  const fetchPayments = async (id: string) => {
     try {
-      const res = await fetch(`/api/payments?invoiceId=${params.id}`);
+      const res = await fetch(`/api/payments?invoiceId=${id}`);
       const data = await res.json();
       if (data.success) {
-        setPayments(data.data);
+        setPayments(data.data || []);
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -81,35 +85,36 @@ export default function InvoiceDetailsPage() {
   };
 
   const handlePaymentSuccess = () => {
-    fetchInvoice();
-    fetchPayments();
+    const id = params?.id as string;
+    if (id) {
+      fetchInvoice(id);
+      fetchPayments(id);
+    }
   };
 
   const handleVoid = async () => {
-  const reason = prompt('Please enter a reason for voiding this invoice:');
-  if (!reason) return;
-  
-  if (confirm('Are you sure you want to void this invoice? This action cannot be undone.')) {
-    try {
-      const res = await fetch(`/api/sales/invoices/${params.id}?reason=${encodeURIComponent(reason)}`, {
-        method: 'DELETE'
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        toast.success('Invoice voided successfully');
-        router.push('/sales/invoices');
-      } else {
-        toast.error(data.error || 'Failed to void invoice');
+    const reason = prompt('Please enter a reason for voiding this invoice:');
+    if (!reason) return;
+    
+    if (confirm('Are you sure you want to void this invoice? This action cannot be undone.')) {
+      try {
+        const res = await fetch(`/api/sales/invoices?id=${params.id}&reason=${encodeURIComponent(reason)}`, {
+          method: 'DELETE'
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+          toast.success('Invoice voided successfully');
+          router.push('/sales/invoices');
+        } else {
+          toast.error(data.error || 'Failed to void invoice');
+        }
+      } catch (error) {
+        toast.error('Error voiding invoice');
       }
-    } catch (error) {
-      toast.error('Error voiding invoice');
     }
-  }
-};
-
-
+  };
 
   if (loading) {
     return (
@@ -134,7 +139,7 @@ export default function InvoiceDetailsPage() {
     );
   }
 
-  const isFullyPaid = invoice.balance_due <= 0;
+  const isFullyPaid = (invoice.balance_due || 0) <= 0;
 
   return (
     <div className="container">
@@ -143,27 +148,30 @@ export default function InvoiceDetailsPage() {
           <h1>Invoice {invoice.invoice_number}</h1>
           <p>{invoice.customer_name}</p>
         </div>
-                <div className="action-buttons">
-                  <Link href="/sales/invoices">
-                    <button className="btn-secondary">Back</button>
-                  </Link>
-                  {!isFullyPaid && invoice.status !== 'cancelled' && invoice.status !== 'void' && (
-                    <>
-                      <Link href={`/sales/invoices/${invoice.id}/edit`}>
-                        <button className="btn-secondary">Edit</button>
-                      </Link>
-                      <button className="btn-primary" onClick={() => setShowPaymentModal(true)}>
-                        Receive Payment
-                      </button>
-                    </>
-                  )}
-                  {invoice.status !== 'void' && invoice.status !== 'paid' && (
-                    <button className="btn-danger" onClick={handleVoid}>
-                      Void Invoice
-                    </button>
-                  )}
-                </div>  
-                    </div>
+        <div className="action-buttons">
+          <Link href="/sales/invoices">
+            <button className="btn-secondary">Back</button>
+          </Link>
+          <Link href={`/api/invoices/${invoice.id}/pdf`} target="_blank">
+            <button className="btn-secondary">📄 Download PDF</button>
+          </Link>
+          {!isFullyPaid && invoice.status !== 'cancelled' && invoice.status !== 'void' && (
+            <>
+              <Link href={`/sales/invoices/${invoice.id}/edit`}>
+                <button className="btn-secondary">Edit</button>
+              </Link>
+              <button className="btn-primary" onClick={() => setShowPaymentModal(true)}>
+                Receive Payment
+              </button>
+            </>
+          )}
+          {invoice.status !== 'void' && invoice.status !== 'paid' && (
+            <button className="btn-danger" onClick={handleVoid}>
+              Void Invoice
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="invoice-status">
         <div className={`status-badge ${invoice.status}`}>
@@ -205,7 +213,7 @@ export default function InvoiceDetailsPage() {
             </div>
             <div className="detail-item">
               <label>Balance Due</label>
-              <p className={`balance ${invoice.balance_due > 0 ? 'due' : 'paid'}`}>
+              <p className={`balance ${(invoice.balance_due || 0) > 0 ? 'due' : 'paid'}`}>
                 {formatNaira(invoice.balance_due || 0)}
               </p>
             </div>
@@ -216,7 +224,7 @@ export default function InvoiceDetailsPage() {
         <div className="card">
           <h2>Items</h2>
           <div className="table-container">
-            <table>
+            <table className="items-table">
               <thead>
                 <tr>
                   <th>Description</th>
@@ -226,7 +234,7 @@ export default function InvoiceDetailsPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoice.items.map((item, index) => (
+                {invoice.items && invoice.items.map((item, index) => (
                   <tr key={index}>
                     <td>{item.description}</td>
                     <td>{item.quantity}</td>
@@ -250,7 +258,7 @@ export default function InvoiceDetailsPage() {
           <div className="card">
             <h2>Payment History</h2>
             <div className="table-container">
-              <table>
+              <table className="payments-table">
                 <thead>
                   <tr>
                     <th>Payment #</th>
@@ -274,8 +282,7 @@ export default function InvoiceDetailsPage() {
                 <tfoot>
                   <tr className="total-row">
                     <td colSpan={2}><strong>Total Paid</strong></td>
-                    <td><strong>{formatNaira(payments.reduce((sum, p) => sum + p.amount, 0))}</strong></td>
-                    <td colSpan={2}></td>
+                    <td colSpan={3}><strong>{formatNaira(payments.reduce((sum, p) => sum + p.amount, 0))}</strong></td>
                   </tr>
                 </tfoot>
               </table>
@@ -316,6 +323,10 @@ export default function InvoiceDetailsPage() {
           background: var(--success-dim);
           color: var(--success);
         }
+        .status-badge.void {
+          background: var(--danger-dim);
+          color: var(--danger);
+        }
         .paid-badge {
           padding: 0.5rem 1rem;
           background: var(--success-dim);
@@ -337,6 +348,7 @@ export default function InvoiceDetailsPage() {
           font-size: 0.75rem;
           color: var(--text-muted);
           text-transform: uppercase;
+          display: block;
         }
         .detail-item p {
           font-size: 1rem;
@@ -363,9 +375,14 @@ export default function InvoiceDetailsPage() {
           font-size: 0.75rem;
           color: var(--text-muted);
           text-transform: uppercase;
+          display: block;
+          margin-bottom: 0.5rem;
         }
         .total-row {
           background: var(--bg-tertiary);
+        }
+        .total-row td {
+          font-weight: 700;
         }
         @media (max-width: 768px) {
           .details-grid {
