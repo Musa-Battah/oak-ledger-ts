@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import ExportButton from '@/components/ExportButton';
 
 interface Product {
   id: string;
@@ -75,7 +76,7 @@ export default function ProductsPage(): React.ReactElement {
 
   if (loading) {
     return (
-      <div>
+      <div className="container">
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
           <p>Loading products...</p>
         </div>
@@ -84,18 +85,25 @@ export default function ProductsPage(): React.ReactElement {
   }
 
   return (
-    <div>
+    <div className="container">
       <div className="page-header">
         <div className="page-title">
           <h1>Products & Services</h1>
           <p>Manage your inventory and service catalog</p>
         </div>
-        <button 
-          className="btn-primary"
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? 'Cancel' : '+ New Product'}
-        </button>
+        <div className="action-buttons">
+          <ExportButton 
+            exportUrl="/api/export/products" 
+            filename="products" 
+            buttonText="Export to Excel"
+          />
+          <button 
+            className="btn-primary"
+            onClick={() => setShowForm(!showForm)}
+          >
+            {showForm ? 'Cancel' : '+ New Product'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -159,21 +167,17 @@ export default function ProductsPage(): React.ReactElement {
 
       <div className="card">
         {products.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <div className="empty-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
-            <div className="empty-title" style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              No products yet
-            </div>
-            <div className="empty-description" style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-              Add your first product or service
-            </div>
+          <div className="empty-state">
+            <div className="empty-icon">📦</div>
+            <div className="empty-title">No products yet</div>
+            <div className="empty-description">Add your first product or service</div>
             <button className="btn-primary" onClick={() => setShowForm(true)}>
               Create Product
             </button>
           </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="products-table">
               <thead>
                 <tr>
                   <th>SKU</th>
@@ -211,6 +215,61 @@ export default function ProductsPage(): React.ReactElement {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+        }
+        .empty-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .empty-title {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+        .empty-description {
+          color: var(--text-muted);
+          margin-bottom: 1.5rem;
+        }
+        .products-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .products-table th,
+        .products-table td {
+          padding: 0.875rem;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .products-table th {
+          background: var(--bg-tertiary);
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+        .text-success {
+          color: var(--success);
+        }
+        .text-danger {
+          color: var(--danger);
+        }
+        .text-muted {
+          color: var(--text-muted);
+        }
+        code {
+          background: var(--bg-tertiary);
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.75rem;
+        }
+        .form-actions {
+          margin-top: 1rem;
+          display: flex;
+          justify-content: flex-end;
+        }
+      `}</style>
     </div>
   );
 }

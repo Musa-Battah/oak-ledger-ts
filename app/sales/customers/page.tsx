@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import ExportButton from '@/components/ExportButton';
 
 interface Customer {
   id: string;
@@ -70,7 +71,7 @@ export default function CustomersPage(): React.ReactElement {
 
   if (loading) {
     return (
-      <div>
+      <div className="container">
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
           <p>Loading customers...</p>
         </div>
@@ -79,18 +80,25 @@ export default function CustomersPage(): React.ReactElement {
   }
 
   return (
-    <div>
+    <div className="container">
       <div className="page-header">
         <div className="page-title">
           <h1>Customers</h1>
           <p>Manage your customer relationships</p>
         </div>
-        <button 
-          className="btn-primary"
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? 'Cancel' : '+ New Customer'}
-        </button>
+        <div className="action-buttons">
+          <ExportButton 
+            exportUrl="/api/export/customers" 
+            filename="customers" 
+            buttonText="Export to Excel"
+          />
+          <button 
+            className="btn-primary"
+            onClick={() => setShowForm(!showForm)}
+          >
+            {showForm ? 'Cancel' : '+ New Customer'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -143,24 +151,17 @@ export default function CustomersPage(): React.ReactElement {
 
       <div className="card">
         {customers.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <div className="empty-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
-            <div className="empty-title" style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              No customers yet
-            </div>
-            <div className="empty-description" style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-              Create your first customer to start selling
-            </div>
-            <button 
-              className="btn-primary" 
-              onClick={() => setShowForm(true)}
-            >
+          <div className="empty-state">
+            <div className="empty-icon">👥</div>
+            <div className="empty-title">No customers yet</div>
+            <div className="empty-description">Create your first customer to start selling</div>
+            <button className="btn-primary" onClick={() => setShowForm(true)}>
               Create Customer
             </button>
           </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="customers-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -193,6 +194,52 @@ export default function CustomersPage(): React.ReactElement {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+        }
+        .empty-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .empty-title {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+        .empty-description {
+          color: var(--text-muted);
+          margin-bottom: 1.5rem;
+        }
+        .customers-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .customers-table th,
+        .customers-table td {
+          padding: 0.875rem;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .customers-table th {
+          background: var(--bg-tertiary);
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+        .text-success {
+          color: var(--success);
+        }
+        .text-danger {
+          color: var(--danger);
+        }
+        .form-actions {
+          margin-top: 1rem;
+          display: flex;
+          justify-content: flex-end;
+        }
+      `}</style>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import ExportButton from '@/components/ExportButton';
 
 interface Supplier {
   id: string;
@@ -71,7 +72,7 @@ export default function SuppliersPage(): React.ReactElement {
 
   if (loading) {
     return (
-      <div>
+      <div className="container">
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
           <p>Loading suppliers...</p>
         </div>
@@ -80,18 +81,25 @@ export default function SuppliersPage(): React.ReactElement {
   }
 
   return (
-    <div>
+    <div className="container">
       <div className="page-header">
         <div className="page-title">
           <h1>Suppliers</h1>
           <p>Manage your vendor relationships</p>
         </div>
-        <button 
-          className="btn-primary"
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? 'Cancel' : '+ New Supplier'}
-        </button>
+        <div className="action-buttons">
+          <ExportButton 
+            exportUrl="/api/export/suppliers" 
+            filename="suppliers" 
+            buttonText="Export to Excel"
+          />
+          <button 
+            className="btn-primary"
+            onClick={() => setShowForm(!showForm)}
+          >
+            {showForm ? 'Cancel' : '+ New Supplier'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -144,24 +152,17 @@ export default function SuppliersPage(): React.ReactElement {
 
       <div className="card">
         {suppliers.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <div className="empty-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏭</div>
-            <div className="empty-title" style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              No suppliers yet
-            </div>
-            <div className="empty-description" style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-              Add your first supplier to track purchases
-            </div>
-            <button 
-              className="btn-primary" 
-              onClick={() => setShowForm(true)}
-            >
+          <div className="empty-state">
+            <div className="empty-icon">🏭</div>
+            <div className="empty-title">No suppliers yet</div>
+            <div className="empty-description">Add your first supplier to track purchases</div>
+            <button className="btn-primary" onClick={() => setShowForm(true)}>
               Create Supplier
             </button>
           </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="suppliers-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -194,6 +195,52 @@ export default function SuppliersPage(): React.ReactElement {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+        }
+        .empty-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .empty-title {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+        .empty-description {
+          color: var(--text-muted);
+          margin-bottom: 1.5rem;
+        }
+        .suppliers-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .suppliers-table th,
+        .suppliers-table td {
+          padding: 0.875rem;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .suppliers-table th {
+          background: var(--bg-tertiary);
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+        .text-success {
+          color: var(--success);
+        }
+        .text-danger {
+          color: var(--danger);
+        }
+        .form-actions {
+          margin-top: 1rem;
+          display: flex;
+          justify-content: flex-end;
+        }
+      `}</style>
     </div>
   );
 }

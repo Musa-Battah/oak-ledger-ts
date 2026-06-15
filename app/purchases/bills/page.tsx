@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import ExportButton from '@/components/ExportButton';
 
 interface Bill {
   id: string;
@@ -42,7 +43,7 @@ export default function BillsList(): React.ReactElement {
 
   if (loading) {
     return (
-      <div>
+      <div className="container">
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
           <p>Loading bills...</p>
         </div>
@@ -51,34 +52,37 @@ export default function BillsList(): React.ReactElement {
   }
 
   return (
-    <div>
+    <div className="container">
       <div className="page-header">
         <div className="page-title">
           <h1>Bills</h1>
           <p>Manage all your supplier bills</p>
         </div>
-        <Link href="/purchases/bills/new">
-          <button className="btn-primary">+ New Bill</button>
-        </Link>
+        <div className="action-buttons">
+          <ExportButton 
+            exportUrl="/api/export/bills" 
+            filename="bills" 
+            buttonText="Export to Excel"
+          />
+          <Link href="/purchases/bills/new">
+            <button className="btn-primary">+ New Bill</button>
+          </Link>
+        </div>
       </div>
 
       <div className="card">
         {bills.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <div className="empty-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-            <div className="empty-title" style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              No bills yet
-            </div>
-            <div className="empty-description" style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-              Create your first bill to track expenses
-            </div>
+          <div className="empty-state">
+            <div className="empty-icon">📄</div>
+            <div className="empty-title">No bills yet</div>
+            <div className="empty-description">Create your first bill to track expenses</div>
             <Link href="/purchases/bills/new">
               <button className="btn-primary">Create Bill</button>
             </Link>
           </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="bills-table">
               <thead>
                 <tr>
                   <th>Bill #</th>
@@ -115,6 +119,61 @@ export default function BillsList(): React.ReactElement {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+        }
+        .empty-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .empty-title {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+        .empty-description {
+          color: var(--text-muted);
+          margin-bottom: 1.5rem;
+        }
+        .bills-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .bills-table th,
+        .bills-table td {
+          padding: 0.875rem;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .bills-table th {
+          background: var(--bg-tertiary);
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+        .badge-draft {
+          background: var(--warning-dim);
+          color: var(--warning);
+        }
+        .badge-received {
+          background: var(--info-dim);
+          color: var(--info);
+        }
+        .badge-paid {
+          background: var(--success-dim);
+          color: var(--success);
+        }
+        .badge-overdue {
+          background: var(--danger-dim);
+          color: var(--danger);
+        }
+        .badge-cancelled {
+          background: var(--danger-dim);
+          color: var(--danger);
+        }
+      `}</style>
     </div>
   );
 }

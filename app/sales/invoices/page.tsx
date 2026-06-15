@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import ExportButton from '@/components/ExportButton';
 
 interface Invoice {
   id: string;
@@ -42,7 +43,7 @@ export default function InvoicesList(): React.ReactElement {
 
   if (loading) {
     return (
-      <div>
+      <div className="container">
         <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
           <p>Loading invoices...</p>
         </div>
@@ -51,34 +52,37 @@ export default function InvoicesList(): React.ReactElement {
   }
 
   return (
-    <div>
+    <div className="container">
       <div className="page-header">
         <div className="page-title">
           <h1>Invoices</h1>
           <p>Manage all your sales invoices</p>
         </div>
-        <Link href="/sales/invoices/new">
-          <button className="btn-primary">+ New Invoice</button>
-        </Link>
+        <div className="action-buttons">
+          <ExportButton 
+            exportUrl="/api/export/invoices" 
+            filename="invoices" 
+            buttonText="Export to Excel"
+          />
+          <Link href="/sales/invoices/new">
+            <button className="btn-primary">+ New Invoice</button>
+          </Link>
+        </div>
       </div>
 
       <div className="card">
         {invoices.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <div className="empty-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
-            <div className="empty-title" style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              No invoices yet
-            </div>
-            <div className="empty-description" style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-              Create your first invoice to get started
-            </div>
+          <div className="empty-state">
+            <div className="empty-icon">📄</div>
+            <div className="empty-title">No invoices yet</div>
+            <div className="empty-description">Create your first invoice to get started</div>
             <Link href="/sales/invoices/new">
               <button className="btn-primary">Create Invoice</button>
             </Link>
           </div>
         ) : (
           <div className="table-container">
-            <table>
+            <table className="invoices-table">
               <thead>
                 <tr>
                   <th>Invoice #</th>
@@ -115,6 +119,41 @@ export default function InvoicesList(): React.ReactElement {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .empty-state {
+          text-align: center;
+          padding: 3rem;
+        }
+        .empty-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .empty-title {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+        .empty-description {
+          color: var(--text-muted);
+          margin-bottom: 1.5rem;
+        }
+        .invoices-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .invoices-table th,
+        .invoices-table td {
+          padding: 0.875rem;
+          text-align: left;
+          border-bottom: 1px solid var(--border);
+        }
+        .invoices-table th {
+          background: var(--bg-tertiary);
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+      `}</style>
     </div>
   );
 }
