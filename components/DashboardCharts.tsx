@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  AreaChart, Area, TooltipProps
+  AreaChart, Area
 } from 'recharts';
 
 interface ChartData {
@@ -23,27 +23,27 @@ const formatNaira = (value: number): string => {
   }).format(value);
 };
 
-// Professional Custom Tooltip
-const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+// Custom Tooltips with proper typing (using any to avoid complex type issues)
+const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="chart-tooltip">
         <div className="tooltip-title">{label}</div>
-        <div className="tooltip-value">{formatNaira(payload[0].value || 0)}</div>
+        <div className="tooltip-value">{formatNaira(payload[0]?.value || 0)}</div>
       </div>
     );
   }
   return null;
 };
 
-const CustomPieTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+const CustomPieTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
-    const data = payload[0].payload as any;
+    const data = payload[0]?.payload;
     return (
       <div className="chart-tooltip">
-        <div className="tooltip-title">{data.name}</div>
-        <div className="tooltip-value">{formatNaira(data.value)}</div>
-        <div className="tooltip-percentage">{(data.percent * 100).toFixed(1)}% of total</div>
+        <div className="tooltip-title">{data?.name || ''}</div>
+        <div className="tooltip-value">{formatNaira(data?.value || 0)}</div>
+        <div className="tooltip-percentage">{(data?.percent * 100).toFixed(1)}% of total</div>
       </div>
     );
   }
@@ -108,9 +108,6 @@ export default function DashboardCharts() {
   const hasAging = data.agingData && data.agingData.length > 0 && data.agingData[0].amount > 0;
 
   const CHART_COLORS = {
-    primary: ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5'],
-    secondary: ['#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
-    accent: ['#f59e0b', '#fbbf24', '#fcd34d', '#fde68a', '#fef3c7'],
     pie: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec489a', '#06b6d4', '#84cc16']
   };
 
@@ -120,7 +117,7 @@ export default function DashboardCharts() {
 
   return (
     <div className="dashboard-charts">
-      {/* Revenue Trend Chart - Enhanced */}
+      {/* Revenue Trend Chart */}
       {hasRevenue && (
         <div className="chart-card">
           <div className="chart-header">
@@ -172,7 +169,7 @@ export default function DashboardCharts() {
         </div>
       )}
 
-      {/* Expense Breakdown - Enhanced Pie Chart */}
+      {/* Expense Breakdown Pie Chart */}
       {hasExpenses && (
         <div className="chart-card">
           <div className="chart-header">
@@ -196,7 +193,7 @@ export default function DashboardCharts() {
                   dataKey="value"
                   nameKey="name"
                 >
-                  {data.expenseBreakdown.map((entry, index) => (
+                  {data.expenseBreakdown.map((_, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={CHART_COLORS.pie[index % CHART_COLORS.pie.length]}
@@ -217,7 +214,7 @@ export default function DashboardCharts() {
         </div>
       )}
 
-      {/* Top Customers - Enhanced Bar Chart */}
+      {/* Top Customers Bar Chart */}
       {hasCustomers && (
         <div className="chart-card">
           <div className="chart-header">
@@ -241,7 +238,7 @@ export default function DashboardCharts() {
                   type="category" 
                   dataKey="name" 
                   stroke="#6b6b6b" 
-                  tick={{ fill: '#a0a0a0', fontSize: 11, width: 100 }}
+                  tick={{ fill: '#a0a0a0', fontSize: 11 }}
                   width={100}
                   tickLine={false}
                   axisLine={false}
@@ -260,7 +257,7 @@ export default function DashboardCharts() {
         </div>
       )}
 
-      {/* Accounts Receivable - Enhanced */}
+      {/* Accounts Receivable Aging */}
       {hasAging && (
         <div className="chart-card">
           <div className="chart-header">
