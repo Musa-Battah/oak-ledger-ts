@@ -40,6 +40,8 @@ interface DbConfig {
   idleTimeoutMillis: number;
   connectionTimeoutMillis: number;
   allowExitOnIdle: boolean;
+  query_timeout: number;
+  statement_timeout: number;
 }
 
 const dbConfig: DbConfig = {
@@ -49,11 +51,13 @@ const dbConfig: DbConfig = {
   user: process.env.DB_USER!,
   password: process.env.DB_PASSWORD!,
   ssl: { rejectUnauthorized: false },
-  max: 5,
+  max: 3, // Reduced from 5 to prevent connection pooling issues
   min: 0,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 5000, // Reduced from 10000
+  connectionTimeoutMillis: 5000, // Reduced from 10000
   allowExitOnIdle: true,
+  query_timeout: 10000, // 10 second query timeout
+  statement_timeout: 10000, // 10 second statement timeout
 };
 
 console.log('🔧 Configuring Neon PostgreSQL connection');
@@ -66,7 +70,7 @@ export function getDb(): Pool {
       console.error('❌ Database pool error:', err.message);
     });
     
-    // Test connection on first use
+    // Test connection once
     testConnection().catch(err => console.error('Initial connection test failed:', err.message));
   }
   return pool!;
@@ -93,25 +97,30 @@ export async function testConnection(): Promise<{ success: boolean; data?: any; 
   }
 }
 
-// Fixed: T must extend QueryResultRow
 export async function query<T extends QueryResultRow = any>(
   text: string, 
   params?: any[]
 ): Promise<QueryResult<T>> {
   const db = getDb();
   try {
-    return await db.query<T>(text, params);
+    // Add timeout to query
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000);
+    });
+    
+    const queryPromise = db.query<T>(text, params);
+    const result = await Promise.race([queryPromise, timeoutPromise]);
+    return result as QueryResult<T>;
   } catch (error) {
     console.error('Query error:', error);
     throw error;
   }
 }
 
-// Fixed: T must extend QueryResultRow
 export async function safeQuery<T extends QueryResultRow = any>(
   text: string, 
   params?: any[], 
-  retries: number = 2
+  retries: number = 1 // Reduced retries
 ): Promise<QueryResult<T>> {
   let lastError: Error | null = null;
   
@@ -122,14 +131,9 @@ export async function safeQuery<T extends QueryResultRow = any>(
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Query attempt ${i + 1} failed:`, lastError.message);
       
-      if (i < retries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-        
-        if (lastError.message.includes('terminated') || 
-            lastError.message.includes('Connection') ||
-            lastError.message.includes('closed')) {
-          await closePool();
-        }
+      if (i < retries && (lastError.message.includes('timeout') || lastError.message.includes('terminated'))) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await closePool();
       }
     }
   }

@@ -10,11 +10,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     
     const data = await getProfitLossReport(period);
     
-    const pdfStream = await renderToBuffer(
+    const pdfBuffer = await renderToBuffer(
       ReportPDF({ type: 'profit-loss', data, period })
     );
     
-    return new NextResponse(pdfStream, {
+    const uint8Array = new Uint8Array(pdfBuffer);
+    
+    return new NextResponse(uint8Array, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

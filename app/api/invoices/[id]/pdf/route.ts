@@ -31,12 +31,13 @@ export async function GET(
       items: items.rows,
     };
     
-    // Generate PDF
-    const pdfStream = await renderToBuffer(
-      InvoicePDF({ invoice })
-    );
+    // Generate PDF as buffer
+    const pdfBuffer = await renderToBuffer(InvoicePDF({ invoice }));
     
-    return new NextResponse(pdfStream, {
+    // Convert buffer to Uint8Array for NextResponse
+    const uint8Array = new Uint8Array(pdfBuffer);
+    
+    return new NextResponse(uint8Array, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
