@@ -140,6 +140,10 @@ export default function Navbar(): React.ReactElement {
                 <Link href="/reports/tax" className="dropdown-item" onClick={closeDropdown}>
                   🏛️ Tax Report
                 </Link>
+                <div className="dropdown-divider"></div>
+                <Link href="/audit-logs" className="dropdown-item" onClick={closeDropdown}>
+                  📋 Audit Log
+                </Link>
               </div>
             )}
           </div>
