@@ -50,7 +50,7 @@ export async function GET() {
         LIMIT 5
       `),
       
-      // Get accounts receivable aging - simplified without complex CASE in GROUP BY
+      // Get accounts receivable aging - simplified
       query(`
         SELECT 
           COALESCE(SUM(balance_due), 0) as total_outstanding
@@ -60,16 +60,24 @@ export async function GET() {
       `)
     ]);
     
-    // Process results with fallbacks
-    let monthlyRevenue = { rows: [] };
-    let expenseBreakdown = { rows: [] };
-    let topCustomers = { rows: [] };
-    let agingResult = { rows: [{ total_outstanding: 0 }] };
+    // Process results with fallbacks - properly typed
+    let monthlyRevenue = { rows: [] as any[] };
+    let expenseBreakdown = { rows: [] as any[] };
+    let topCustomers = { rows: [] as any[] };
+    let agingResult = { rows: [{ total_outstanding: 0 }] as any[] };
     
-    if (results[0].status === 'fulfilled') monthlyRevenue = results[0].value;
-    if (results[1].status === 'fulfilled') expenseBreakdown = results[1].value;
-    if (results[2].status === 'fulfilled') topCustomers = results[2].value;
-    if (results[3].status === 'fulfilled') agingResult = results[3].value;
+    if (results[0].status === 'fulfilled') {
+      monthlyRevenue = results[0].value as any;
+    }
+    if (results[1].status === 'fulfilled') {
+      expenseBreakdown = results[1].value as any;
+    }
+    if (results[2].status === 'fulfilled') {
+      topCustomers = results[2].value as any;
+    }
+    if (results[3].status === 'fulfilled') {
+      agingResult = results[3].value as any;
+    }
     
     // Create aging data from total
     const agingData = [
@@ -77,15 +85,15 @@ export async function GET() {
     ];
     
     const formattedData = {
-      monthlyRevenue: monthlyRevenue.rows.map(row => ({
+      monthlyRevenue: monthlyRevenue.rows.map((row: any) => ({
         month: row.month,
         amount: parseFloat(row.amount)
       })),
-      expenseBreakdown: expenseBreakdown.rows.map(row => ({
+      expenseBreakdown: expenseBreakdown.rows.map((row: any) => ({
         name: row.name,
         value: parseFloat(row.value)
       })),
-      topCustomers: topCustomers.rows.map(row => ({
+      topCustomers: topCustomers.rows.map((row: any) => ({
         name: row.name,
         amount: parseFloat(row.amount)
       })),
