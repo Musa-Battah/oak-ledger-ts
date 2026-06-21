@@ -433,3 +433,69 @@ export interface PaymentFormData {
   reference_number?: string;
   notes?: string;
 }
+
+// ============================================
+// AUTHENTICATION TYPES
+// ============================================
+
+export type UserRole = 'admin' | 'accountant' | 'viewer';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  organization_id?: string;
+  is_active: boolean;
+  last_login?: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  tax_id?: string;
+  logo_url?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface Session {
+  id: string;
+  user_id: string;
+  token: string;
+  expires_at: Date;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: Date;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  organization_name: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  user?: User;
+  token?: string;
+  error?: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}

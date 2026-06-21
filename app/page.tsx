@@ -43,54 +43,48 @@ export default function HomePage() {
 
   const features = [
     {
-      icon: '📄',
       title: 'Invoicing',
       description: 'Create and manage professional invoices for your customers',
       link: '/sales/invoices/new',
-      linkText: 'Create Invoice →'
+      linkText: 'Create Invoice'
     },
     {
-      icon: '💰',
       title: 'Payment Tracking',
       description: 'Record customer payments and track outstanding balances',
       link: '/sales/invoices',
-      linkText: 'View Invoices →'
+      linkText: 'View Invoices'
     },
     {
-      icon: '📊',
       title: 'Financial Reports',
       description: 'Generate IFRS-compliant financial statements instantly',
       link: '/reports/profit-loss',
-      linkText: 'View Reports →'
+      linkText: 'View Reports'
     },
     {
-      icon: '🏷️',
       title: 'VAT Management',
-      description: 'Track and report Nigerian VAT (7.5%) with FIRS-compliant reports',
+      description: 'Track and report Nigerian VAT with FIRS-compliant reports',
       link: '/reports/tax',
-      linkText: 'View VAT Report →'
+      linkText: 'View VAT Report'
     },
     {
-      icon: '👥',
       title: 'Customer Management',
       description: 'Maintain a complete customer database with transaction history',
       link: '/sales/customers',
-      linkText: 'Manage Customers →'
+      linkText: 'Manage Customers'
     },
     {
-      icon: '📦',
       title: 'Product Catalog',
       description: 'Manage your products and services with pricing and inventory',
       link: '/sales/products',
-      linkText: 'View Products →'
+      linkText: 'View Products'
     }
   ];
 
   const quickActions = [
-    { icon: '+', label: 'New Invoice', href: '/sales/invoices/new', color: 'primary' },
-    { icon: '+', label: 'New Bill', href: '/purchases/bills/new', color: 'secondary' },
-    { icon: '📊', label: 'Dashboard', href: '/dashboard', color: 'info' },
-    { icon: '📄', label: 'Reports', href: '/reports/profit-loss', color: 'success' }
+    { label: 'New Invoice', href: '/sales/invoices/new', color: 'primary' },
+    { label: 'New Bill', href: '/purchases/bills/new', color: 'secondary' },
+    { label: 'Dashboard', href: '/dashboard', color: 'info' },
+    { label: 'Reports', href: '/reports/profit-loss', color: 'success' }
   ];
 
   if (loading) {
@@ -104,8 +98,9 @@ export default function HomePage() {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 60vh;
+            min-height: 100vh;
             gap: 1rem;
+            background: var(--bg-primary);
           }
           .spinner {
             width: 48px;
@@ -125,45 +120,48 @@ export default function HomePage() {
 
   return (
     <div className="home-container">
-      {/* Hero Section */}
+      {/* Hero Section with Full Page Background Image - Stretched */}
       <div className="hero-section">
-        <div className="hero-content">
-          <div className="hero-badge">🌳 Double-Entry Accounting</div>
-          <h1 className="hero-title">
-            Professional Accounting for <span className="highlight">Nigerian Businesses</span>
-          </h1>
-          <p className="hero-description">
-            Manage invoices, track payments, generate IFRS-compliant reports, 
-            and stay compliant with Nigerian tax regulations — all in one place.
-          </p>
-          <div className="hero-actions">
-            <Link href="/sales/invoices/new">
-              <button className="btn-primary hero-btn">Get Started</button>
-            </Link>
-            <Link href="/dashboard">
-              <button className="btn-secondary hero-btn">Go to Dashboard</button>
-            </Link>
+        <div className="hero-overlay"></div>
+        <div className="hero-content-wrapper">
+          <div className="hero-content">
+            <div className="hero-badge">Double-Entry Accounting</div>
+            <h1 className="hero-title">
+              Professional Accounting for <span className="highlight">Nigerian Businesses</span>
+            </h1>
+            <p className="hero-description">
+              Manage invoices, track payments, generate IFRS-compliant reports, 
+              and stay compliant with Nigerian tax regulations all in one place.
+            </p>
+            <div className="hero-actions">
+              <Link href="/sales/invoices/new">
+                <button className="btn-primary hero-btn">Get Started</button>
+              </Link>
+              <Link href="/dashboard">
+                <button className="btn-secondary hero-btn">Go to Dashboard</button>
+              </Link>
+            </div>
           </div>
-        </div>
-        <div className="hero-stats">
-          <div className="stat-item">
-            <span className="stat-number">₦{stats.totalRevenue.toLocaleString()}</span>
-            <span className="stat-label">Total Revenue</span>
-          </div>
-          <div className="stat-divider"></div>
-          <div className="stat-item">
-            <span className="stat-number">{stats.totalCustomers}</span>
-            <span className="stat-label">Customers</span>
-          </div>
-          <div className="stat-divider"></div>
-          <div className="stat-item">
-            <span className="stat-number">{stats.totalSuppliers}</span>
-            <span className="stat-label">Suppliers</span>
-          </div>
-          <div className="stat-divider"></div>
-          <div className="stat-item">
-            <span className="stat-number">{stats.totalProducts}</span>
-            <span className="stat-label">Products</span>
+          <div className="hero-stats">
+            <div className="stat-item">
+              <span className="stat-number">₦{stats.totalRevenue.toLocaleString()}</span>
+              <span className="stat-label">Total Revenue</span>
+            </div>
+            <div className="stat-divider"></div>
+            <div className="stat-item">
+              <span className="stat-number">{stats.totalCustomers}</span>
+              <span className="stat-label">Customers</span>
+            </div>
+            <div className="stat-divider"></div>
+            <div className="stat-item">
+              <span className="stat-number">{stats.totalSuppliers}</span>
+              <span className="stat-label">Suppliers</span>
+            </div>
+            <div className="stat-divider"></div>
+            <div className="stat-item">
+              <span className="stat-number">{stats.totalProducts}</span>
+              <span className="stat-label">Products</span>
+            </div>
           </div>
         </div>
       </div>
@@ -175,7 +173,6 @@ export default function HomePage() {
           {quickActions.map((action, index) => (
             <Link key={index} href={action.href}>
               <button className={`quick-action-btn ${action.color}`}>
-                <span className="action-icon">{action.icon}</span>
                 {action.label}
               </button>
             </Link>
@@ -189,11 +186,10 @@ export default function HomePage() {
         <div className="features-grid">
           {features.map((feature, index) => (
             <div key={index} className="feature-card">
-              <div className="feature-icon">{feature.icon}</div>
               <h3>{feature.title}</h3>
               <p>{feature.description}</p>
               <Link href={feature.link} className="feature-link">
-                {feature.linkText}
+                {feature.linkText} →
               </Link>
             </div>
           ))}
@@ -203,28 +199,24 @@ export default function HomePage() {
       {/* Nigerian Focus Section */}
       <div className="nigeria-section">
         <div className="nigeria-content">
-          <div className="nigeria-badge">🇳🇬 Nigerian Focus</div>
+          <div className="nigeria-badge">Nigerian Focus</div>
           <h2>Built for Nigerian Businesses</h2>
           <p>
             Oak Ledger is designed specifically for the Nigerian business environment 
-            with support for Naira (₦), 7.5% VAT, FIRS-compliant reporting, 
+            with support for Naira, 7.5% VAT, FIRS-compliant reporting, 
             and IFRS financial statements.
           </p>
           <div className="nigeria-features">
             <div className="nigeria-feature">
-              <span>₦</span>
               <span>Naira Currency Support</span>
             </div>
             <div className="nigeria-feature">
-              <span>📊</span>
               <span>7.5% VAT Calculation</span>
             </div>
             <div className="nigeria-feature">
-              <span>📋</span>
               <span>FIRS-Compliant Reports</span>
             </div>
             <div className="nigeria-feature">
-              <span>📄</span>
               <span>IFRS Financial Statements</span>
             </div>
           </div>
@@ -233,34 +225,44 @@ export default function HomePage() {
 
       <style jsx>{`
         .home-container {
-          padding: 1rem 0;
+          padding: 0;
+          min-height: 100vh;
         }
 
-        /* Hero Section */
+        /* Hero Section with Full Page Background Image - Stretched */
         .hero-section {
-          background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 3rem;
-          margin-bottom: 2rem;
           position: relative;
-          overflow: hidden;
+          min-height: 100vh;
+          width: 100%;
+          background-image: url('/assets/Moonlight.jpg');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          display: flex;
+          align-items: center;
+          padding: 4rem 2rem;
+          margin-bottom: 2rem;
+          /* Force image to cover the entire area */
+          background-attachment: scroll;
         }
-        .hero-section::before {
-          content: '';
+        .hero-overlay {
           position: absolute;
-          top: -50%;
-          right: -20%;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
-          border-radius: 50%;
-          pointer-events: none;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          z-index: 0;
+        }
+        .hero-content-wrapper {
+          position: relative;
+          z-index: 1;
+          max-width: 1200px;
+          width: 100%;
+          margin: 0 auto;
         }
         .hero-content {
           max-width: 600px;
-          position: relative;
-          z-index: 1;
         }
         .hero-badge {
           display: inline-block;
@@ -273,11 +275,11 @@ export default function HomePage() {
           margin-bottom: 1rem;
         }
         .hero-title {
-          font-size: 2.5rem;
+          font-size: 3rem;
           font-weight: 700;
           line-height: 1.2;
           margin-bottom: 1rem;
-          color: var(--text-primary);
+          color: #ffffff;
         }
         .hero-title .highlight {
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -287,7 +289,7 @@ export default function HomePage() {
         }
         .hero-description {
           font-size: 1.125rem;
-          color: var(--text-secondary);
+          color: rgba(255, 255, 255, 0.85);
           line-height: 1.6;
           margin-bottom: 1.5rem;
         }
@@ -303,11 +305,9 @@ export default function HomePage() {
           display: flex;
           align-items: center;
           gap: 2rem;
-          margin-top: 2rem;
+          margin-top: 3rem;
           padding-top: 2rem;
-          border-top: 1px solid var(--border);
-          position: relative;
-          z-index: 1;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         .stat-item {
           display: flex;
@@ -316,21 +316,23 @@ export default function HomePage() {
         .stat-number {
           font-size: 1.5rem;
           font-weight: 700;
-          color: var(--text-primary);
+          color: #ffffff;
         }
         .stat-label {
           font-size: 0.75rem;
-          color: var(--text-muted);
+          color: rgba(255, 255, 255, 0.6);
         }
         .stat-divider {
           width: 1px;
           height: 40px;
-          background: var(--border);
+          background: rgba(255, 255, 255, 0.1);
         }
 
         /* Quick Actions */
         .quick-actions {
-          margin-bottom: 2rem;
+          max-width: 1200px;
+          margin: 0 auto 2rem;
+          padding: 0 2rem;
         }
         .quick-actions h2 {
           font-size: 1rem;
@@ -344,9 +346,6 @@ export default function HomePage() {
           flex-wrap: wrap;
         }
         .quick-action-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
           padding: 0.75rem 1.25rem;
           border-radius: 8px;
           border: none;
@@ -356,9 +355,6 @@ export default function HomePage() {
         }
         .quick-action-btn:hover {
           transform: translateY(-2px);
-        }
-        .action-icon {
-          font-size: 1.125rem;
         }
         .quick-action-btn.primary {
           background: var(--success-dim);
@@ -395,7 +391,9 @@ export default function HomePage() {
 
         /* Features Section */
         .features-section {
-          margin-bottom: 2rem;
+          max-width: 1200px;
+          margin: 0 auto 2rem;
+          padding: 0 2rem;
         }
         .features-section h2 {
           font-size: 1.5rem;
@@ -420,10 +418,6 @@ export default function HomePage() {
           border-color: var(--success);
           transform: translateY(-4px);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        .feature-icon {
-          font-size: 2.5rem;
-          margin-bottom: 1rem;
         }
         .feature-card h3 {
           font-size: 1.125rem;
@@ -451,16 +445,16 @@ export default function HomePage() {
 
         /* Nigeria Section */
         .nigeria-section {
-          background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+          max-width: 1200px;
+          margin: 0 auto 2rem;
+          padding: 0 2rem;
+        }
+        .nigeria-content {
+          background: var(--bg-card);
           border: 1px solid var(--border);
           border-radius: 16px;
           padding: 3rem;
-          margin-bottom: 2rem;
-        }
-        .nigeria-content {
           text-align: center;
-          max-width: 800px;
-          margin: 0 auto;
         }
         .nigeria-badge {
           display: inline-block;
@@ -490,26 +484,21 @@ export default function HomePage() {
           gap: 1rem;
         }
         .nigeria-feature {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
           background: var(--bg-tertiary);
           padding: 0.75rem 1rem;
           border-radius: 8px;
           font-size: 0.875rem;
           color: var(--text-secondary);
         }
-        .nigeria-feature span:first-child {
-          font-size: 1.25rem;
-        }
 
         /* Responsive */
         @media (max-width: 768px) {
           .hero-section {
-            padding: 1.5rem;
+            min-height: 80vh;
+            padding: 2rem 1rem;
           }
           .hero-title {
-            font-size: 1.75rem;
+            font-size: 2rem;
           }
           .hero-description {
             font-size: 1rem;
@@ -524,14 +513,26 @@ export default function HomePage() {
           .hero-actions {
             flex-direction: column;
           }
+          .quick-actions {
+            padding: 0 1rem;
+          }
           .quick-actions-grid {
             flex-direction: column;
           }
           .quick-action-btn {
             justify-content: center;
           }
+          .features-section {
+            padding: 0 1rem;
+          }
           .features-grid {
             grid-template-columns: 1fr;
+          }
+          .nigeria-section {
+            padding: 0 1rem;
+          }
+          .nigeria-content {
+            padding: 1.5rem;
           }
           .nigeria-features {
             grid-template-columns: 1fr 1fr;

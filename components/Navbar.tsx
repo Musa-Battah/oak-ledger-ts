@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 type DropdownMenu = 'sales' | 'purchases' | 'reports' | 'accounting' | null;
 
 export default function Navbar(): React.ReactElement {
+  const { user, logout } = useAuth();
   const [openDropdown, setOpenDropdown] = useState<DropdownMenu>(null);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const pathname = usePathname();
@@ -21,6 +23,11 @@ export default function Navbar(): React.ReactElement {
   };
 
   const isActive = (path: string): boolean => pathname === path;
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = '/';
+  };
 
   return (
     <nav className="navbar">
@@ -46,7 +53,7 @@ export default function Navbar(): React.ReactElement {
             Dashboard
           </Link>
           
-          {/* Sales Dropdown - align left (default) */}
+          {/* Sales Dropdown */}
           <div className="dropdown dropdown-left">
             <button 
               className={`dropdown-toggle ${openDropdown === 'sales' ? 'active' : ''}`}
@@ -57,30 +64,30 @@ export default function Navbar(): React.ReactElement {
             {openDropdown === 'sales' && (
               <div className="dropdown-menu">
                 <Link href="/sales/overview" className="dropdown-item" onClick={closeDropdown}>
-                  📊 Overview
+                  Overview
                 </Link>
                 <Link href="/sales/invoices" className="dropdown-item" onClick={closeDropdown}>
-                  📄 Invoices
+                  Invoices
                 </Link>
                 <Link href="/sales/invoices/new" className="dropdown-item" onClick={closeDropdown}>
-                  ✨ New Invoice
+                  New Invoice
                 </Link>
                 <div className="dropdown-divider"></div>
                 <Link href="/sales/products" className="dropdown-item" onClick={closeDropdown}>
-                  📦 Products & Services
+                  Products & Services
                 </Link>
                 <Link href="/sales/customers" className="dropdown-item" onClick={closeDropdown}>
-                  👥 Customers
+                  Customers
                 </Link>
                 <div className="dropdown-divider"></div>
                 <Link href="/sales/settings" className="dropdown-item" onClick={closeDropdown}>
-                  ⚙️ Sales Settings
+                  Sales Settings
                 </Link>
               </div>
             )}
           </div>
           
-          {/* Purchases Dropdown - align left */}
+          {/* Purchases Dropdown */}
           <div className="dropdown dropdown-left">
             <button 
               className={`dropdown-toggle ${openDropdown === 'purchases' ? 'active' : ''}`}
@@ -91,30 +98,30 @@ export default function Navbar(): React.ReactElement {
             {openDropdown === 'purchases' && (
               <div className="dropdown-menu">
                 <Link href="/purchases/overview" className="dropdown-item" onClick={closeDropdown}>
-                  📊 Overview
+                  Overview
                 </Link>
                 <Link href="/purchases/bills" className="dropdown-item" onClick={closeDropdown}>
-                  📄 Bills
+                  Bills
                 </Link>
                 <Link href="/purchases/bills/new" className="dropdown-item" onClick={closeDropdown}>
-                  ✨ New Bill
+                  New Bill
                 </Link>
                 <div className="dropdown-divider"></div>
                 <Link href="/purchases/expenses" className="dropdown-item" onClick={closeDropdown}>
-                  💸 Expenses
+                  Expenses
                 </Link>
                 <Link href="/purchases/suppliers" className="dropdown-item" onClick={closeDropdown}>
-                  🏭 Suppliers
+                  Suppliers
                 </Link>
                 <div className="dropdown-divider"></div>
                 <Link href="/purchases/settings" className="dropdown-item" onClick={closeDropdown}>
-                  ⚙️ Purchases Settings
+                  Purchases Settings
                 </Link>
               </div>
             )}
           </div>
           
-          {/* Reports Dropdown - align right since it's near the edge */}
+          {/* Reports Dropdown */}
           <div className="dropdown dropdown-right">
             <button 
               className={`dropdown-toggle ${openDropdown === 'reports' ? 'active' : ''}`}
@@ -125,30 +132,27 @@ export default function Navbar(): React.ReactElement {
             {openDropdown === 'reports' && (
               <div className="dropdown-menu">
                 <Link href="/reports/profit-loss" className="dropdown-item" onClick={closeDropdown}>
-                  📈 Profit & Loss
+                  Profit & Loss
                 </Link>
                 <Link href="/reports/balance-sheet" className="dropdown-item" onClick={closeDropdown}>
-                  ⚖️ Balance Sheet
+                  Balance Sheet
                 </Link>
                 <Link href="/reports/trial-balance" className="dropdown-item" onClick={closeDropdown}>
-                  📋 Trial Balance
+                  Trial Balance
                 </Link>
                 <div className="dropdown-divider"></div>
-                <Link href="/reports/cashflow" className="dropdown-item" onClick={closeDropdown}>
-                  💵 Cash Flow
-                </Link>
                 <Link href="/reports/tax" className="dropdown-item" onClick={closeDropdown}>
-                  🏛️ Tax Report
+                  VAT Report
                 </Link>
                 <div className="dropdown-divider"></div>
                 <Link href="/audit-logs" className="dropdown-item" onClick={closeDropdown}>
-                  📋 Audit Log
+                  Audit Log
                 </Link>
               </div>
             )}
           </div>
           
-          {/* Accounting Dropdown - align right since it's at the edge */}
+          {/* Accounting Dropdown */}
           <div className="dropdown dropdown-right">
             <button 
               className={`dropdown-toggle ${openDropdown === 'accounting' ? 'active' : ''}`}
@@ -159,20 +163,86 @@ export default function Navbar(): React.ReactElement {
             {openDropdown === 'accounting' && (
               <div className="dropdown-menu">
                 <Link href="/accounts" className="dropdown-item" onClick={closeDropdown}>
-                  📚 Chart of Accounts
+                  Chart of Accounts
                 </Link>
                 <Link href="/journal" className="dropdown-item" onClick={closeDropdown}>
-                  📓 Journal Entries
+                  Journal Entries
                 </Link>
                 <div className="dropdown-divider"></div>
                 <Link href="/settings/accounting" className="dropdown-item" onClick={closeDropdown}>
-                  ⚙️ Accounting Settings
+                  Accounting Settings
                 </Link>
               </div>
             )}
           </div>
+          
+          {/* User Section */}
+          {user ? (
+            <div className="user-section">
+              <span className="user-name">{user.name}</span>
+              <span className="user-role">{user.role}</span>
+              <button onClick={handleLogout} className="logout-btn">
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="auth-links">
+              <Link href="/login" className="nav-link" onClick={closeDropdown}>
+                Sign in
+              </Link>
+              <Link href="/register" className="nav-link" onClick={closeDropdown}>
+                Create account
+              </Link>
+            </div>
+          )}
         </div>
       </div>
+
+      <style jsx>{`
+        .user-section {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+        .user-name {
+          color: var(--text-primary);
+          font-weight: 500;
+          font-size: 0.875rem;
+        }
+        .user-role {
+          color: var(--text-muted);
+          font-size: 0.75rem;
+          background: var(--bg-tertiary);
+          padding: 0.15rem 0.5rem;
+          border-radius: 12px;
+          text-transform: uppercase;
+        }
+        .logout-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 0.875rem;
+          padding: 0.5rem 1rem;
+          color: var(--text-secondary);
+          transition: all 0.2s ease;
+          border-radius: 6px;
+        }
+        .logout-btn:hover {
+          color: #ef4444;
+          background-color: var(--danger-dim);
+        }
+        .auth-links {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+        }
+        @media (max-width: 768px) {
+          .user-section {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+          }
+        }
+      `}</style>
     </nav>
   );
 }
