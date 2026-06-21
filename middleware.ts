@@ -14,9 +14,6 @@ export async function middleware(request: NextRequest) {
   // Check if route is public
   const isPublicRoute = publicRoutes.some(route => pathname === route || pathname.startsWith('/api/auth'));
   
-  // Check if route is a protected API
-  const isProtectedApi = protectedApiRoutes.some(route => pathname.startsWith(route));
-  
   // Allow public routes
   if (isPublicRoute) {
     return NextResponse.next();
@@ -59,6 +56,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|assets).*)',
   ],
 };

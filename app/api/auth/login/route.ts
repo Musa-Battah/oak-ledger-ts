@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
       user.id,
       token,
       expiresAt,
-      request.ip || undefined,
       request.headers.get('user-agent') || undefined
     );
     
