@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     await createSession(userId, token, expiresAt);
     
     // Set cookie
-    setAuthCookie(token);
+    await setAuthCookie(token);
     
     // Update last login
     await updateLastLogin(userId);

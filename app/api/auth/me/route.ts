@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser, requireAuth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { query } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    const authCheck = await requireAuth(request);
-    if (authCheck) return authCheck;
-    
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        { error: 'Not authenticated' },
+        { status: 401 }
       );
     }
     
