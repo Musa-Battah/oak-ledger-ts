@@ -5,9 +5,6 @@ import { verifyToken } from '@/lib/auth';
 // Public routes that don't require authentication
 const publicRoutes = ['/', '/login', '/register', '/api/auth/login', '/api/auth/register', '/api/auth/me'];
 
-// Protected API routes that require authentication
-const protectedApiRoutes = ['/api/sales', '/api/purchases', '/api/reports', '/api/accounts', '/api/payments', '/api/export', '/api/audit-logs'];
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
@@ -34,8 +31,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
   
-  // Verify token
-  const payload = verifyToken(token);
+  // Verify token (now async with jose)
+  const payload = await verifyToken(token);
   if (!payload) {
     // Clear invalid cookie
     const response = NextResponse.redirect(new URL('/login', request.url));
@@ -49,13 +46,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|public|assets).*)',
   ],
 };

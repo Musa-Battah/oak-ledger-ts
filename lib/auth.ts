@@ -1,12 +1,17 @@
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from './db';
 import { User, UserRole } from '@/types';
+import { SignJWT, jwtVerify } from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const TOKEN_EXPIRY = '7d';
+
+// Get secret key as Uint8Array for jose
+function getSecretKey(): Uint8Array {
+  return new TextEncoder().encode(JWT_SECRET);
+}
 
 export interface TokenPayload {
   userId: string;
@@ -24,20 +29,28 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return await bcrypt.compare(password, hash);
 }
 
-// Generate JWT token
-export function generateToken(user: { id: string; email: string; role: UserRole }): string {
+// Generate JWT token using jose (Edge compatible)
+export async function generateToken(user: { id: string; email: string; role: UserRole }): Promise<string> {
   const payload: TokenPayload = {
     userId: user.id,
     email: user.email,
     role: user.role,
   };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+  
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(TOKEN_EXPIRY)
+    .sign(getSecretKey());
+  
+  return token;
 }
 
-// Verify JWT token
-export function verifyToken(token: string): TokenPayload | null {
+// Verify JWT token using jose (Edge compatible)
+export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    const { payload } = await jwtVerify(token, getSecretKey());
+    return payload as TokenPayload;
   } catch {
     return null;
   }
@@ -75,14 +88,14 @@ export async function getUserById(userId: string): Promise<any> {
   return result.rows[0] || null;
 }
 
-// Get current user from session cookie - FIXED for Next.js 16
+// Get current user from session cookie
 export async function getCurrentUser(): Promise<any> {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
   
   if (!token) return null;
   
-  const payload = verifyToken(token);
+  const payload = await verifyToken(token);
   if (!payload) return null;
   
   const user = await getUserById(payload.userId);
@@ -107,7 +120,7 @@ export async function updateLastLogin(userId: string): Promise<void> {
   );
 }
 
-// Set auth cookie - FIXED for Next.js 16
+// Set auth cookie
 export async function setAuthCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set('auth_token', token, {
@@ -119,7 +132,7 @@ export async function setAuthCookie(token: string): Promise<void> {
   });
 }
 
-// Clear auth cookie - FIXED for Next.js 16
+// Clear auth cookie
 export async function clearAuthCookie(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete('auth_token');
@@ -142,4 +155,4 @@ export function hasPermission(user: User | null, requiredRole: UserRole): boolea
   };
   
   return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
-};
+}

@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Generate token
-    const token = generateToken({ id: user.id, email: user.email, role: user.role });
+    // Generate token (now async with jose)
+    const token = await generateToken({ id: user.id, email: user.email, role: user.role });
     
     // Create session
     const expiresAt = new Date();
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     );
     
     // Set cookie
-    setAuthCookie(token);
+    await setAuthCookie(token);
     
     // Update last login
     await updateLastLogin(user.id);

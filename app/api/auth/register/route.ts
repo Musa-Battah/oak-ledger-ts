@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
       [userId, name, email, passwordHash, 'admin', orgId]
     );
     
-    // Generate token
-    const token = generateToken({ id: userId, email, role: 'admin' });
+    // Generate token (now async with jose)
+    const token = await generateToken({ id: userId, email, role: 'admin' });
     
     // Create session
     const expiresAt = new Date();
