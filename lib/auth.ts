@@ -114,6 +114,20 @@ export async function getCurrentUser(): Promise<any> {
   return user;
 }
 
+// Create session
+export async function createSession(
+  userId: string,
+  token: string,
+  expiresAt: Date,
+  userAgent?: string
+): Promise<void> {
+  await query(
+    `INSERT INTO sessions (id, user_id, token, expires_at, user_agent)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+    [userId, token, expiresAt, userAgent || null]
+  );
+}
+
 // Update last login
 export async function updateLastLogin(userId: string): Promise<void> {
   await query(
@@ -140,6 +154,12 @@ export async function clearAuthCookie(): Promise<void> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.delete('auth_token');
+}
+
+// Logout
+export async function logout(token: string): Promise<void> {
+  await query('DELETE FROM sessions WHERE token = $1', [token]);
+  await clearAuthCookie();
 }
 
 // Check if user has permission
