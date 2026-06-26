@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { verifyTokenEdge } from '@/lib/auth-edge';
 
 // Public routes that don't require authentication
 const publicRoutes = ['/', '/login', '/register', '/api/auth/login', '/api/auth/register', '/api/auth/me'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Check if route is public
@@ -31,8 +31,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
   
-  // Verify token (now async with jose)
-  const payload = await verifyToken(token);
+  // Verify token using Edge-compatible function (no bcrypt)
+  const payload = await verifyTokenEdge(token);
   if (!payload) {
     // Clear invalid cookie
     const response = NextResponse.redirect(new URL('/login', request.url));
