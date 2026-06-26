@@ -1,6 +1,7 @@
+// This file is for SERVER-ONLY operations (API routes, Server Components)
+// Do NOT import this in middleware
+
 import bcrypt from 'bcryptjs';
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
 import { query } from './db';
 import { User, UserRole } from '@/types';
 import { SignJWT, jwtVerify } from 'jose';
@@ -19,17 +20,25 @@ export interface TokenPayload {
   role: UserRole;
 }
 
-// Hash password
+// ============================================
+// SERVER-ONLY FUNCTIONS (use bcrypt)
+// ============================================
+
+// Hash password - SERVER ONLY
 export async function hashPassword(password: string): Promise<string> {
   return await bcrypt.hash(password, 10);
 }
 
-// Verify password
+// Verify password - SERVER ONLY
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return await bcrypt.compare(password, hash);
 }
 
-// Generate JWT token using jose (Edge compatible)
+// ============================================
+// EDGE-COMPATIBLE FUNCTIONS (use jose)
+// ============================================
+
+// Generate JWT token - Edge compatible
 export async function generateToken(user: { id: string; email: string; role: UserRole }): Promise<string> {
   const payload: TokenPayload = {
     userId: user.id,
@@ -37,7 +46,7 @@ export async function generateToken(user: { id: string; email: string; role: Use
     role: user.role,
   };
   
-  const token = await new SignJWT(payload)
+  const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(TOKEN_EXPIRY)
@@ -46,29 +55,29 @@ export async function generateToken(user: { id: string; email: string; role: Use
   return token;
 }
 
-// Verify JWT token using jose (Edge compatible)
+// Verify JWT token - Edge compatible
 export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
-    return payload as TokenPayload;
+    const { userId, email, role } = payload as any;
+    
+    if (!userId || !email || !role) {
+      return null;
+    }
+    
+    return {
+      userId,
+      email,
+      role
+    };
   } catch {
     return null;
   }
 }
 
-// Create session
-export async function createSession(
-  userId: string,
-  token: string,
-  expiresAt: Date,
-  userAgent?: string
-): Promise<void> {
-  await query(
-    `INSERT INTO sessions (id, user_id, token, expires_at, user_agent)
-     VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
-    [userId, token, expiresAt, userAgent || null]
-  );
-}
+// ============================================
+// DATABASE FUNCTIONS (Server only - uses query)
+// ============================================
 
 // Get user by email
 export async function getUserByEmail(email: string): Promise<any> {
@@ -90,6 +99,7 @@ export async function getUserById(userId: string): Promise<any> {
 
 // Get current user from session cookie
 export async function getCurrentUser(): Promise<any> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
   
@@ -100,14 +110,6 @@ export async function getCurrentUser(): Promise<any> {
   
   const user = await getUserById(payload.userId);
   if (!user) return null;
-  
-  // Check if session exists and is valid
-  const sessionResult = await query(
-    'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()',
-    [token]
-  );
-  
-  if (sessionResult.rows.length === 0) return null;
   
   return user;
 }
@@ -122,26 +124,22 @@ export async function updateLastLogin(userId: string): Promise<void> {
 
 // Set auth cookie
 export async function setAuthCookie(token: string): Promise<void> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.set('auth_token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 7,
     path: '/',
   });
 }
 
 // Clear auth cookie
 export async function clearAuthCookie(): Promise<void> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.delete('auth_token');
-}
-
-// Logout
-export async function logout(token: string): Promise<void> {
-  await query('DELETE FROM sessions WHERE token = $1', [token]);
-  await clearAuthCookie();
 }
 
 // Check if user has permission
