@@ -14,7 +14,20 @@ function getSecretKey(): Uint8Array {
 export async function verifyTokenEdge(token: string): Promise<TokenPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
-    return payload as TokenPayload;
+    
+    // Extract and validate the payload fields
+    const { userId, email, role } = payload as any;
+    
+    // Ensure all required fields exist
+    if (!userId || !email || !role) {
+      return null;
+    }
+    
+    return {
+      userId,
+      email,
+      role
+    };
   } catch {
     return null;
   }
