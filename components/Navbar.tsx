@@ -180,6 +180,9 @@ export default function Navbar(): React.ReactElement {
           {user ? (
             <div className="user-section">
               <span className="user-name">{user.name}</span>
+              {user.email === 'demo@oakledger.com' && (
+                <span className="demo-badge">Demo</span>
+              )}
               <span className="user-role">{user.role}</span>
               <button onClick={handleLogout} className="logout-btn">
                 Sign out
@@ -215,6 +218,15 @@ export default function Navbar(): React.ReactElement {
           background: var(--bg-tertiary);
           padding: 0.15rem 0.5rem;
           border-radius: 12px;
+          text-transform: uppercase;
+        }
+        .demo-badge {
+          background: var(--warning-dim);
+          color: var(--warning);
+          padding: 0.15rem 0.5rem;
+          border-radius: 12px;
+          font-size: 0.65rem;
+          font-weight: 600;
           text-transform: uppercase;
         }
         .logout-btn {

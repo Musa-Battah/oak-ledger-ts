@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,6 +26,19 @@ export default function LoginPage() {
       setError('Invalid email or password');
     }
     setLoading(false);
+  };
+
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    setError('');
+    
+    const success = await login('demo@oakledger.com', 'Demo@123');
+    if (success) {
+      router.push('/dashboard');
+    } else {
+      setError('Demo login failed. Please try again.');
+    }
+    setDemoLoading(false);
   };
 
   return (
@@ -66,9 +80,24 @@ export default function LoginPage() {
           </button>
         </form>
 
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
+
+        <button 
+          className="btn-demo" 
+          onClick={handleDemoLogin}
+          disabled={demoLoading}
+        >
+          {demoLoading ? 'Loading...' : '🎯 Try Demo Account'}
+        </button>
+
         <div className="auth-footer">
           <p>
             Don't have an account? <Link href="/register">Sign up</Link>
+          </p>
+          <p className="demo-info">
+            <small>Demo: demo@oakledger.com / Demo@123 (Viewer access)</small>
           </p>
         </div>
       </div>
@@ -142,6 +171,51 @@ export default function LoginPage() {
           padding: 0.75rem;
           margin-top: 0.5rem;
         }
+        .auth-divider {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 1.5rem 0;
+          position: relative;
+        }
+        .auth-divider::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: var(--border);
+        }
+        .auth-divider span {
+          background: var(--bg-card);
+          padding: 0 1rem;
+          color: var(--text-muted);
+          font-size: 0.75rem;
+          position: relative;
+          z-index: 1;
+        }
+        .btn-demo {
+          width: 100%;
+          padding: 0.75rem;
+          background: var(--success-dim);
+          color: var(--success);
+          border: 2px solid var(--success);
+          border-radius: 8px;
+          font-size: 0.875rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .btn-demo:hover:not(:disabled) {
+          background: var(--success);
+          color: white;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .btn-demo:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
         .auth-footer {
           text-align: center;
           margin-top: 1.5rem;
@@ -155,6 +229,11 @@ export default function LoginPage() {
         }
         .auth-footer a:hover {
           text-decoration: underline;
+        }
+        .demo-info {
+          margin-top: 0.5rem;
+          font-size: 0.7rem;
+          color: var(--text-muted);
         }
       `}</style>
     </div>
