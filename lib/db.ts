@@ -27,6 +27,7 @@ import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 let pool: Pool | null = null;
 let isShuttingDown: boolean = false;
+let isConnecting: boolean = false;
 
 interface DbConfig {
   host: string;
@@ -51,27 +52,49 @@ const dbConfig: DbConfig = {
   user: process.env.DB_USER!,
   password: process.env.DB_PASSWORD!,
   ssl: { rejectUnauthorized: false },
-  max: 3, // Reduced from 5 to prevent connection pooling issues
-  min: 0,
-  idleTimeoutMillis: 5000, // Reduced from 10000
-  connectionTimeoutMillis: 5000, // Reduced from 10000
+  max: 5,
+  min: 1, // Keep at least 1 connection ready
+  idleTimeoutMillis: 30000, // 30 seconds
+  connectionTimeoutMillis: 10000, // 10 seconds
   allowExitOnIdle: true,
-  query_timeout: 10000, // 10 second query timeout
-  statement_timeout: 10000, // 10 second statement timeout
+  query_timeout: 15000, // 15 second query timeout
+  statement_timeout: 15000, // 15 second statement timeout
 };
 
 console.log('🔧 Configuring Neon PostgreSQL connection');
 
 export function getDb(): Pool {
   if (!pool && !isShuttingDown) {
-    pool = new Pool(dbConfig);
+    if (isConnecting) {
+      // Wait for existing connection attempt
+      let attempts = 0;
+      while (!pool && attempts < 50) {
+        attempts++;
+        // Wait 100ms between checks
+        const start = Date.now();
+        while (Date.now() - start < 100) {}
+      }
+      if (pool) return pool!;
+    }
     
-    pool.on('error', (err: Error) => {
-      console.error('❌ Database pool error:', err.message);
-    });
-    
-    // Test connection once
-    testConnection().catch(err => console.error('Initial connection test failed:', err.message));
+    isConnecting = true;
+    try {
+      pool = new Pool(dbConfig);
+      
+      pool.on('error', (err: Error) => {
+        console.error('❌ Database pool error:', err.message);
+      });
+      
+      // Warm up the connection
+      pool.connect()
+        .then(client => {
+          console.log('✅ Database connection warmed up');
+          client.release();
+        })
+        .catch(err => console.error('❌ Database warm-up failed:', err.message));
+    } finally {
+      isConnecting = false;
+    }
   }
   return pool!;
 }
@@ -102,15 +125,12 @@ export async function query<T extends QueryResultRow = any>(
   params?: any[]
 ): Promise<QueryResult<T>> {
   const db = getDb();
+  if (!db) {
+    throw new Error('Database connection not available');
+  }
+  
   try {
-    // Add timeout to query
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000);
-    });
-    
-    const queryPromise = db.query<T>(text, params);
-    const result = await Promise.race([queryPromise, timeoutPromise]);
-    return result as QueryResult<T>;
+    return await db.query<T>(text, params);
   } catch (error) {
     console.error('Query error:', error);
     throw error;
@@ -120,7 +140,7 @@ export async function query<T extends QueryResultRow = any>(
 export async function safeQuery<T extends QueryResultRow = any>(
   text: string, 
   params?: any[], 
-  retries: number = 1 // Reduced retries
+  retries: number = 3
 ): Promise<QueryResult<T>> {
   let lastError: Error | null = null;
   
@@ -131,9 +151,11 @@ export async function safeQuery<T extends QueryResultRow = any>(
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Query attempt ${i + 1} failed:`, lastError.message);
       
-      if (i < retries && (lastError.message.includes('timeout') || lastError.message.includes('terminated'))) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (i < retries && lastError.message.includes('timeout')) {
+        // Reset pool and try again
         await closePool();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        getDb();
       }
     }
   }

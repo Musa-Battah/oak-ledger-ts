@@ -32,7 +32,7 @@ export default function LoginPage() {
     setDemoLoading(true);
     setError('');
     
-    const success = await login('demo@oakledger.com', 'Demo@123');
+    const success = await login('demo@oakledger.com', '1234567890');
     if (success) {
       router.push('/dashboard');
     } else {
@@ -69,7 +69,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Enter your password"
               required
               minLength={8}
             />
@@ -89,15 +89,15 @@ export default function LoginPage() {
           onClick={handleDemoLogin}
           disabled={demoLoading}
         >
-          {demoLoading ? 'Loading...' : '🎯 Try Demo Account'}
+          {demoLoading ? 'Loading...' : 'Try Demo Account'}
         </button>
 
         <div className="auth-footer">
           <p>
-            Don't have an account? <Link href="/register">Sign up</Link>
+            Dont have an account? <Link href="/register">Sign up</Link>
           </p>
           <p className="demo-info">
-            <small>Demo: demo@oakledger.com / Demo@123 (Viewer access)</small>
+            <small>Demo: demo@oakledger.com / 1234567890</small>
           </p>
         </div>
       </div>

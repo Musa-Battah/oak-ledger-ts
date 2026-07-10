@@ -33,7 +33,7 @@ export default function Navbar(): React.ReactElement {
     <nav className="navbar">
       <div className="nav-container">
         <Link href="/" className="logo" onClick={closeDropdown}>
-          🌳 <span>Oak</span> Ledger
+          Oak Ledger
         </Link>
         
         <button 

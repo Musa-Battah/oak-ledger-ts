@@ -2,7 +2,7 @@
 // Do NOT import this in middleware
 
 import bcrypt from 'bcryptjs';
-import { query } from './db';
+import { query, safeQuery, closePool } from './db';
 import { User, UserRole } from '@/types';
 import { SignJWT, jwtVerify } from 'jose';
 
@@ -79,22 +79,44 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
 // DATABASE FUNCTIONS (Server only - uses query)
 // ============================================
 
-// Get user by email
+// Get user by email - with retry logic
 export async function getUserByEmail(email: string): Promise<any> {
-  const result = await query(
-    'SELECT * FROM users WHERE email = $1 AND is_active = true',
-    [email]
-  );
-  return result.rows[0] || null;
+  try {
+    const result = await safeQuery(
+      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+      [email]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('Error fetching user by email:', error);
+    // Try one more time with a fresh connection
+    await closePool();
+    const result = await query(
+      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+      [email]
+    );
+    return result.rows[0] || null;
+  }
 }
 
-// Get user by id
+// Get user by id - with retry logic
 export async function getUserById(userId: string): Promise<any> {
-  const result = await query(
-    'SELECT id, name, email, role, organization_id, is_active, last_login, created_at FROM users WHERE id = $1',
-    [userId]
-  );
-  return result.rows[0] || null;
+  try {
+    const result = await safeQuery(
+      'SELECT id, name, email, role, organization_id, is_active, last_login, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('Error fetching user by id:', error);
+    // Try one more time with a fresh connection
+    await closePool();
+    const result = await query(
+      'SELECT id, name, email, role, organization_id, is_active, last_login, created_at FROM users WHERE id = $1',
+      [userId]
+    );
+    return result.rows[0] || null;
+  }
 }
 
 // Get current user from session cookie
@@ -174,3 +196,43 @@ export function hasPermission(user: User | null, requiredRole: UserRole): boolea
   
   return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
 }
+
+// ============================================
+// AUTH MIDDLEWARE HELPERS
+// ============================================
+
+// Get user from request (for API routes)
+export async function getUserFromRequest(request: Request): Promise<any> {
+  const { cookies } = await import('next/headers');
+  // For API routes, we need to extract the cookie from the request
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
+  const token = cookieMatch ? cookieMatch[1] : null;
+  
+  if (!token) return null;
+  
+  const payload = await verifyToken(token);
+  if (!payload) return null;
+  
+  const user = await getUserById(payload.userId);
+  if (!user) return null;
+  
+  return user;
+}
+
+export default {
+  hashPassword,
+  verifyPassword,
+  generateToken,
+  verifyToken,
+  getUserByEmail,
+  getUserById,
+  getCurrentUser,
+  getUserFromRequest,
+  createSession,
+  updateLastLogin,
+  setAuthCookie,
+  clearAuthCookie,
+  logout,
+  hasPermission,
+};
