@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const searchParams = useSearchParams();
+  const { register, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,6 +18,15 @@ export default function RegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+
+  // If already authenticated, redirect to the return URL
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push(returnUrl);
+    }
+  }, [isAuthenticated, returnUrl, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +52,7 @@ export default function RegisterPage() {
     );
 
     if (success) {
-      router.push('/dashboard');
+      router.push(returnUrl);
     } else {
       setError('Registration failed. Please try again.');
     }
@@ -124,7 +134,7 @@ export default function RegisterPage() {
 
         <div className="auth-footer">
           <p>
-            Already have an account? <Link href="/login">Sign in</Link>
+            Already have an account? <Link href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}>Sign in</Link>
           </p>
         </div>
       </div>

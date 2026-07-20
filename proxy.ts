@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { verifyTokenEdge } from '@/lib/auth-edge';
 
 // Public routes that don't require authentication
-const publicRoutes = ['/', '/login', '/register', '/api/auth/login', '/api/auth/register', '/api/auth/me'];
+const publicRoutes = ['/', '/login', '/register', '/api/auth/login', '/api/auth/register', '/api/auth/me', '/api/test-password'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -24,6 +24,7 @@ export async function proxy(request: NextRequest) {
     // Redirect to login for page routes
     if (!pathname.startsWith('/api')) {
       const loginUrl = new URL('/login', request.url);
+      // Pass the current path as returnUrl so user can be redirected back after login
       loginUrl.searchParams.set('returnUrl', pathname);
       return NextResponse.redirect(loginUrl);
     }

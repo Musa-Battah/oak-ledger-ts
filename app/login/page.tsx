@@ -1,18 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const searchParams = useSearchParams();
+  const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Get the return URL from query parameters
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+
+  // If already authenticated, redirect to the return URL
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push(returnUrl);
+    }
+  }, [isAuthenticated, returnUrl, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +32,7 @@ export default function LoginPage() {
 
     const success = await login(email, password);
     if (success) {
-      router.push('/dashboard');
+      router.push(returnUrl);
     } else {
       setError('Invalid email or password');
     }
@@ -34,7 +45,7 @@ export default function LoginPage() {
     
     const success = await login('demo@oakledger.com', '1234567890');
     if (success) {
-      router.push('/dashboard');
+      router.push(returnUrl);
     } else {
       setError('Demo login failed. Please try again.');
     }
@@ -94,7 +105,7 @@ export default function LoginPage() {
 
         <div className="auth-footer">
           <p>
-            Dont have an account? <Link href="/register">Sign up</Link>
+            Don't have an account? <Link href="/register">Sign up</Link>
           </p>
           <p className="demo-info">
             <small>Demo: demo@oakledger.com / 1234567890</small>
