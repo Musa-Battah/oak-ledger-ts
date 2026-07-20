@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import SearchableSelect from '@/components/SearchableSelect';
 
 interface Account {
   id: string;
@@ -27,6 +26,7 @@ export default function NewJournalEntryPage() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -104,6 +104,14 @@ export default function NewJournalEntryPage() {
     return '';
   };
 
+  const getFilteredAccounts = () => {
+    if (!searchTerm) return accounts;
+    return accounts.filter(a => 
+      a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.code.includes(searchTerm)
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -154,6 +162,7 @@ export default function NewJournalEntryPage() {
 
   const { totalDebits, totalCredits, difference } = calculateTotals();
   const isBalanced = Math.abs(difference) < 0.01;
+  const filteredAccounts = getFilteredAccounts();
 
   return (
     <div className="container">
@@ -216,14 +225,25 @@ export default function NewJournalEntryPage() {
                   {formData.lines.map((line, index) => (
                     <tr key={index}>
                       <td>
-                        <SearchableSelect
-                          options={accounts}
+                        <select
                           value={line.account_id}
-                          onChange={(id) => updateLine(index, 'account_id', id)}
-                          placeholder="Search account..."
-                          entityType="account"
-                          getOptionLabel={(option) => `${option.code} - ${option.name}`}
-                          getOptionValue={(option) => option.id}
+                          onChange={(e) => updateLine(index, 'account_id', e.target.value)}
+                          className="account-select"
+                          required
+                        >
+                          <option value="">Select Account</option>
+                          {filteredAccounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.code} - {account.name} ({account.type})
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Search accounts..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="account-search"
                         />
                       </td>
                       <td>
@@ -332,6 +352,33 @@ export default function NewJournalEntryPage() {
         }
         .journal-lines h3 {
           margin: 1.5rem 0 1rem 0;
+        }
+        .account-select {
+          width: 100%;
+          padding: 0.5rem;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-light);
+          border-radius: 4px;
+          color: var(--text-primary);
+          font-size: 0.875rem;
+          margin-bottom: 0.25rem;
+        }
+        .account-select:focus {
+          outline: none;
+          border-color: var(--success);
+        }
+        .account-search {
+          width: 100%;
+          padding: 0.4rem;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-light);
+          border-radius: 4px;
+          color: var(--text-secondary);
+          font-size: 0.75rem;
+        }
+        .account-search:focus {
+          outline: none;
+          border-color: var(--success);
         }
         .amount-input {
           width: 100%;
