@@ -53,7 +53,7 @@ export default function Navbar(): React.ReactElement {
             Dashboard
           </Link>
           
-          {/* Sales Dropdown */}
+          {/* Sales Dropdown - align left (default) */}
           <div className="dropdown dropdown-left">
             <button 
               className={`dropdown-toggle ${openDropdown === 'sales' ? 'active' : ''}`}
@@ -87,7 +87,7 @@ export default function Navbar(): React.ReactElement {
             )}
           </div>
           
-          {/* Purchases Dropdown */}
+          {/* Purchases Dropdown - align left */}
           <div className="dropdown dropdown-left">
             <button 
               className={`dropdown-toggle ${openDropdown === 'purchases' ? 'active' : ''}`}
@@ -121,7 +121,7 @@ export default function Navbar(): React.ReactElement {
             )}
           </div>
           
-          {/* Reports Dropdown */}
+          {/* Reports Dropdown - align right since it's near the edge */}
           <div className="dropdown dropdown-right">
             <button 
               className={`dropdown-toggle ${openDropdown === 'reports' ? 'active' : ''}`}
@@ -152,7 +152,7 @@ export default function Navbar(): React.ReactElement {
             )}
           </div>
           
-          {/* Accounting Dropdown */}
+          {/* Accounting Dropdown - align right since it's at the edge */}
           <div className="dropdown dropdown-right">
             <button 
               className={`dropdown-toggle ${openDropdown === 'accounting' ? 'active' : ''}`}
@@ -165,8 +165,11 @@ export default function Navbar(): React.ReactElement {
                 <Link href="/accounts" className="dropdown-item" onClick={closeDropdown}>
                   Chart of Accounts
                 </Link>
-                <Link href="/journal" className="dropdown-item" onClick={closeDropdown}>
+                <Link href="/accounting/journal" className="dropdown-item" onClick={closeDropdown}>
                   Journal Entries
+                </Link>
+                <Link href="/accounting/journal/new" className="dropdown-item" onClick={closeDropdown}>
+                  New Journal Entry
                 </Link>
                 <div className="dropdown-divider"></div>
                 <Link href="/settings/accounting" className="dropdown-item" onClick={closeDropdown}>

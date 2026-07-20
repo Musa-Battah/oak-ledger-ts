@@ -499,3 +499,45 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
+
+// ============================================
+// MANUAL JOURNAL ENTRY TYPES
+// ============================================
+
+export type JournalEntryStatus = 'draft' | 'posted' | 'void';
+
+export interface ManualJournalEntryLine {
+  id?: string;
+  account_id: string;
+  account_name?: string;
+  account_code?: string;
+  amount: number;
+  type: 'debit' | 'credit';
+  description?: string;
+}
+
+export interface ManualJournalEntry {
+  id: string;
+  entry_number: string;
+  date: Date;
+  description: string;
+  reference?: string;
+  status: JournalEntryStatus;
+  created_by?: string;
+  created_by_name?: string;
+  lines: ManualJournalEntryLine[];
+  total_debits: number;
+  total_credits: number;
+  is_balanced: boolean;
+  created_at: Date;
+  updated_at: Date;
+  posted_at?: Date;
+  void_reason?: string;
+}
+
+export interface JournalEntryFormData {
+  date: string;
+  description: string;
+  reference: string;
+  lines: ManualJournalEntryLine[];
+}

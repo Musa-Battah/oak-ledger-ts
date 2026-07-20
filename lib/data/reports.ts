@@ -5,11 +5,7 @@
 import { query } from '@/lib/db';
 import { ProfitLossReport, BalanceSheetReport, TrialBalanceReport } from '@/types';
 
-export async function getProfitLossReport(
-  period: string = 'month', 
-  startDate?: string, 
-  endDate?: string
-): Promise<ProfitLossReport> {
+export async function getProfitLossReport(period: string = 'month', startDate?: string, endDate?: string): Promise<ProfitLossReport> {
   let dateFilter = '';
   
   if (startDate && endDate) {
@@ -37,7 +33,8 @@ export async function getProfitLossReport(
     }
   }
   
-  // Get Revenue (Income) - from invoice payments and revenue accounts
+  // Get Revenue accounts (type = 'Revenue')
+  // This includes revenue from invoices AND manual journal entries
   const revenueResult = await query(`
     SELECT 
       a.id, 
@@ -67,7 +64,7 @@ export async function getProfitLossReport(
     FROM accounts a
     LEFT JOIN journal_entries je ON a.id = je.account_id
     LEFT JOIN transactions t ON je.transaction_id = t.id
-    WHERE a.code = '5000' OR a.name ILIKE '%cost of goods%'
+    WHERE (a.code = '5000' OR a.name ILIKE '%cost of goods%')
       AND a.is_active = true
       AND je.type = 'debit'
       AND t.status = 'posted'
@@ -76,6 +73,7 @@ export async function getProfitLossReport(
   `);
   
   // Get Operating Expenses
+  // This includes expenses from bills AND manual journal entries
   const expenseResult = await query(`
     SELECT 
       a.id, 
@@ -122,27 +120,29 @@ export async function getProfitLossReport(
   const grossProfit = totalRevenue - totalCOGS;
   const netIncome = grossProfit - totalExpenses;
   
-return {
-  revenue: {
-    total: totalRevenue,
-    items: revenueItems
-  },
-  cogs: {
-    total: totalCOGS,
-    items: cogsItems
-  },
-  expenses: {
-    total: totalExpenses,
-    items: expenseItems
-  },
-  grossProfit,
-  netIncome
-};
-  }
+  return {
+    revenue: {
+      total: totalRevenue,
+      items: revenueItems
+    },
+    cogs: {
+      total: totalCOGS,
+      items: cogsItems
+    },
+    expenses: {
+      total: totalExpenses,
+      items: expenseItems
+    },
+    grossProfit,
+    netIncome
+  };
+}
 
 export async function getBalanceSheetReport(asAtDate?: string): Promise<BalanceSheetReport> {
   const dateFilter = asAtDate ? `AND created_at <= '${asAtDate}'` : '';
   
+  // Get all Asset, Liability, and Equity accounts
+  // This includes balances affected by manual journal entries
   const accountsResult = await query(`
     SELECT id, code, name, type, balance, normal_balance
     FROM accounts
@@ -219,6 +219,8 @@ export async function getBalanceSheetReport(asAtDate?: string): Promise<BalanceS
 }
 
 export async function getTrialBalanceReport(asAtDate?: string): Promise<TrialBalanceReport> {
+  // Get ALL accounts including Revenue and Expense
+  // Manual journal entries flow through the journal_entries table
   const accountsResult = await query(`
     SELECT id, code, name, type, normal_balance, balance
     FROM accounts
@@ -263,8 +265,8 @@ export async function getTrialBalanceReport(asAtDate?: string): Promise<TrialBal
   };
 }
 
-// NEW: Get recent transactions for audit trail
 export async function getRecentTransactions(limit: number = 50): Promise<any[]> {
+  // Include manual journal entries in recent transactions
   const result = await query(`
     SELECT 
       t.id,
@@ -272,6 +274,7 @@ export async function getRecentTransactions(limit: number = 50): Promise<any[]> 
       t.description,
       t.reference_number,
       t.type,
+      t.source_type,
       t.status,
       json_agg(json_build_object(
         'account_name', a.name,
@@ -291,37 +294,38 @@ export async function getRecentTransactions(limit: number = 50): Promise<any[]> 
   return result.rows;
 }
 
-// NEW: Get account activity for a specific period
-export async function getAccountActivity(
-  accountId: string, 
-  startDate: string, 
+export async function getJournalEntriesForReport(
+  startDate: string,
   endDate: string
 ): Promise<any[]> {
   const result = await query(`
     SELECT 
-      t.date,
-      t.description,
-      t.reference_number,
-      je.amount,
-      je.type,
-      t.type as transaction_type
-    FROM journal_entries je
-    JOIN transactions t ON je.transaction_id = t.id
-    WHERE je.account_id = $1
-      AND t.date BETWEEN $2 AND $3
-      AND t.status = 'posted'
-    ORDER BY t.date DESC
-  `, [accountId, startDate, endDate]);
+      mje.entry_number,
+      mje.date,
+      mje.description,
+      mje.reference,
+      mjel.account_id,
+      a.name as account_name,
+      a.code as account_code,
+      a.type as account_type,
+      mjel.amount,
+      mjel.type as debit_credit
+    FROM manual_journal_entries mje
+    JOIN manual_journal_entry_lines mjel ON mje.id = mjel.entry_id
+    JOIN accounts a ON mjel.account_id = a.id
+    WHERE mje.date BETWEEN $1 AND $2
+      AND mje.status = 'posted'
+    ORDER BY mje.date DESC
+  `, [startDate, endDate]);
   
   return result.rows;
 }
 
-// NEW: Get summary statistics for dashboard
 export async function getDashboardSummary(): Promise<any> {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   
-  // Current month revenue
+  // Current month revenue (includes manual entries)
   const revenueResult = await query(`
     SELECT COALESCE(SUM(je.amount), 0) as total
     FROM journal_entries je
@@ -333,7 +337,7 @@ export async function getDashboardSummary(): Promise<any> {
       AND t.date >= $1
   `, [startOfMonth.toISOString().split('T')[0]]);
   
-  // Current month expenses
+  // Current month expenses (includes manual entries)
   const expenseResult = await query(`
     SELECT COALESCE(SUM(je.amount), 0) as total
     FROM journal_entries je
