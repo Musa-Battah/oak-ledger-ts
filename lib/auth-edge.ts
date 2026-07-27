@@ -16,17 +16,18 @@ export async function verifyTokenEdge(token: string): Promise<TokenPayload | nul
     const { payload } = await jwtVerify(token, getSecretKey());
     
     // Extract and validate the payload fields
-    const { userId, email, role } = payload as any;
+    const { userId, email, role, organizationId } = payload as any;
     
     // Ensure all required fields exist
-    if (!userId || !email || !role) {
+    if (!userId || !email || !role || !organizationId) {
       return null;
     }
     
     return {
       userId,
       email,
-      role
+      role,
+      organizationId
     };
   } catch {
     return null;
