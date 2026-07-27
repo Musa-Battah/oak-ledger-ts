@@ -555,3 +555,103 @@ export interface JournalEntryFormData {
   reference: string;
   lines: ManualJournalEntryLine[];
 }
+
+// ============================================
+// PAYROLL TYPES
+// ============================================
+
+export interface Employee {
+  id: string;
+  employee_code: string;
+  organization_id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  date_of_birth?: Date;
+  hire_date: Date;
+  termination_date?: Date;
+  department?: string;
+  position?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_account_name?: string;
+  bank_sort_code?: string;
+  basic_salary: number;
+  housing_allowance: number;
+  transport_allowance: number;
+  medical_allowance: number;
+  other_allowances: number;
+  pension_percentage: number;
+  tax_percentage: number;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PayrollRun {
+  id: string;
+  organization_id: string;
+  run_number: string;
+  period_start: Date;
+  period_end: Date;
+  run_date: Date;
+  status: 'draft' | 'processing' | 'completed' | 'cancelled';
+  total_gross_pay: number;
+  total_deductions: number;
+  total_net_pay: number;
+  created_by?: string;
+  approved_by?: string;
+  notes?: string;
+  entries?: PayrollEntry[];
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PayrollEntry {
+  id: string;
+  payroll_run_id: string;
+  employee_id: string;
+  employee?: Employee;
+  organization_id: string;
+  gross_pay: number;
+  tax_deduction: number;
+  pension_deduction: number;
+  nhf_deduction: number;
+  health_insurance_deduction: number;
+  other_deductions: number;
+  total_deductions: number;
+  net_pay: number;
+  payment_status: 'pending' | 'paid' | 'failed';
+  payment_date?: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface PayrollTaxRate {
+  id: string;
+  organization_id: string;
+  annual_income_min: number;
+  annual_income_max: number;
+  tax_rate: number;
+  effective_year: number;
+  is_active: boolean;
+}
+
+export interface PayrollPensionConfig {
+  id: string;
+  organization_id: string;
+  employee_contribution_rate: number;
+  employer_contribution_rate: number;
+  effective_year: number;
+  is_active: boolean;
+}
+
+export interface PayrollNHFConfig {
+  id: string;
+  organization_id: string;
+  contribution_rate: number;
+  effective_year: number;
+  is_active: boolean;
+}

@@ -172,6 +172,13 @@ export default function Navbar(): React.ReactElement {
                   New Journal Entry
                 </Link>
                 <div className="dropdown-divider"></div>
+                <Link href="/payroll" className="dropdown-item" onClick={closeDropdown}>
+                  Payroll
+                </Link>
+                <Link href="/payroll/employees" className="dropdown-item" onClick={closeDropdown}>
+                  Employees
+                </Link>
+                <div className="dropdown-divider"></div>
                 <Link href="/settings/accounting" className="dropdown-item" onClick={closeDropdown}>
                   Accounting Settings
                 </Link>
