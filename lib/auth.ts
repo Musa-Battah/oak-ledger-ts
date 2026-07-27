@@ -3,7 +3,7 @@
 
 import bcrypt from 'bcryptjs';
 import { query, safeQuery, closePool } from './db';
-import { User, UserRole } from '@/types';
+import { User, UserRole, Organization } from '@/types';
 import { SignJWT, jwtVerify } from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -18,18 +18,17 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: UserRole;
+  organizationId: string;
 }
 
 // ============================================
 // SERVER-ONLY FUNCTIONS (use bcrypt)
 // ============================================
 
-// Hash password - SERVER ONLY
 export async function hashPassword(password: string): Promise<string> {
   return await bcrypt.hash(password, 10);
 }
 
-// Verify password - SERVER ONLY
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return await bcrypt.compare(password, hash);
 }
@@ -38,12 +37,12 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 // EDGE-COMPATIBLE FUNCTIONS (use jose)
 // ============================================
 
-// Generate JWT token - Edge compatible
-export async function generateToken(user: { id: string; email: string; role: UserRole }): Promise<string> {
+export async function generateToken(user: { id: string; email: string; role: UserRole; organizationId: string }): Promise<string> {
   const payload: TokenPayload = {
     userId: user.id,
     email: user.email,
     role: user.role,
+    organizationId: user.organizationId,
   };
   
   const token = await new SignJWT({ ...payload })
@@ -55,20 +54,20 @@ export async function generateToken(user: { id: string; email: string; role: Use
   return token;
 }
 
-// Verify JWT token - Edge compatible
 export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
-    const { userId, email, role } = payload as any;
+    const { userId, email, role, organizationId } = payload as any;
     
-    if (!userId || !email || !role) {
+    if (!userId || !email || !role || !organizationId) {
       return null;
     }
     
     return {
       userId,
       email,
-      role
+      role,
+      organizationId
     };
   } catch {
     return null;
@@ -79,47 +78,56 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
 // DATABASE FUNCTIONS (Server only - uses query)
 // ============================================
 
-// Get user by email - with retry logic
 export async function getUserByEmail(email: string): Promise<any> {
   try {
     const result = await safeQuery(
-      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+      `SELECT u.*, o.id as org_id, o.name as org_name, o.email as org_email 
+       FROM users u
+       LEFT JOIN organizations o ON u.organization_id = o.id
+       WHERE u.email = $1 AND u.is_active = true`,
       [email]
     );
     return result.rows[0] || null;
   } catch (error) {
     console.error('Error fetching user by email:', error);
-    // Try one more time with a fresh connection
     await closePool();
     const result = await query(
-      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+      `SELECT u.*, o.id as org_id, o.name as org_name, o.email as org_email 
+       FROM users u
+       LEFT JOIN organizations o ON u.organization_id = o.id
+       WHERE u.email = $1 AND u.is_active = true`,
       [email]
     );
     return result.rows[0] || null;
   }
 }
 
-// Get user by id - with retry logic
 export async function getUserById(userId: string): Promise<any> {
   try {
     const result = await safeQuery(
-      'SELECT id, name, email, role, organization_id, is_active, last_login, created_at FROM users WHERE id = $1',
+      `SELECT u.id, u.name, u.email, u.role, u.organization_id, u.is_active, u.last_login, u.created_at,
+              o.id as org_id, o.name as org_name, o.email as org_email, o.address as org_address
+       FROM users u
+       LEFT JOIN organizations o ON u.organization_id = o.id
+       WHERE u.id = $1`,
       [userId]
     );
     return result.rows[0] || null;
   } catch (error) {
     console.error('Error fetching user by id:', error);
-    // Try one more time with a fresh connection
     await closePool();
     const result = await query(
-      'SELECT id, name, email, role, organization_id, is_active, last_login, created_at FROM users WHERE id = $1',
+      `SELECT u.id, u.name, u.email, u.role, u.organization_id, u.is_active, u.last_login, u.created_at,
+              o.id as org_id, o.name as org_name, o.email as org_email, o.address as org_address
+       FROM users u
+       LEFT JOIN organizations o ON u.organization_id = o.id
+       WHERE u.id = $1`,
       [userId]
     );
     return result.rows[0] || null;
   }
 }
 
-// Get current user from session cookie
 export async function getCurrentUser(): Promise<any> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
@@ -136,7 +144,6 @@ export async function getCurrentUser(): Promise<any> {
   return user;
 }
 
-// Create session
 export async function createSession(
   userId: string,
   token: string,
@@ -150,7 +157,6 @@ export async function createSession(
   );
 }
 
-// Update last login
 export async function updateLastLogin(userId: string): Promise<void> {
   await query(
     'UPDATE users SET last_login = NOW() WHERE id = $1',
@@ -158,7 +164,6 @@ export async function updateLastLogin(userId: string): Promise<void> {
   );
 }
 
-// Set auth cookie
 export async function setAuthCookie(token: string): Promise<void> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
@@ -171,21 +176,18 @@ export async function setAuthCookie(token: string): Promise<void> {
   });
 }
 
-// Clear auth cookie
 export async function clearAuthCookie(): Promise<void> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.delete('auth_token');
 }
 
-// Logout
 export async function logout(token: string): Promise<void> {
   await query('DELETE FROM sessions WHERE token = $1', [token]);
   await clearAuthCookie();
 }
 
-// Check if user has permission
-export function hasPermission(user: User | null, requiredRole: UserRole): boolean {
+export function hasPermission(user: any, requiredRole: UserRole): boolean {
   if (!user) return false;
   
   const roleHierarchy: Record<UserRole, number> = {
@@ -197,27 +199,10 @@ export function hasPermission(user: User | null, requiredRole: UserRole): boolea
   return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
 }
 
-// ============================================
-// AUTH MIDDLEWARE HELPERS
-// ============================================
-
-// Get user from request (for API routes)
-export async function getUserFromRequest(request: Request): Promise<any> {
-  const { cookies } = await import('next/headers');
-  // For API routes, we need to extract the cookie from the request
-  const cookieHeader = request.headers.get('cookie') || '';
-  const cookieMatch = cookieHeader.match(/auth_token=([^;]+)/);
-  const token = cookieMatch ? cookieMatch[1] : null;
-  
-  if (!token) return null;
-  
-  const payload = await verifyToken(token);
-  if (!payload) return null;
-  
-  const user = await getUserById(payload.userId);
-  if (!user) return null;
-  
-  return user;
+// Get current user's organization ID (for filtering)
+export async function getCurrentOrganizationId(): Promise<string | null> {
+  const user = await getCurrentUser();
+  return user?.organization_id || null;
 }
 
 export default {
@@ -228,7 +213,7 @@ export default {
   getUserByEmail,
   getUserById,
   getCurrentUser,
-  getUserFromRequest,
+  getCurrentOrganizationId,
   createSession,
   updateLastLogin,
   setAuthCookie,

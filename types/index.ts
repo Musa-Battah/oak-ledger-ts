@@ -40,6 +40,7 @@ export interface Account {
   description?: string;
   child_count?: number;
   children?: Account[];
+  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -58,6 +59,7 @@ export interface Customer {
   invoice_count?: number;
   total_paid?: number;
   outstanding?: number;
+  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -72,6 +74,7 @@ export interface Supplier {
   bill_count?: number;
   total_paid?: number;
   outstanding?: number;
+  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -90,6 +93,7 @@ export interface Product {
   current_stock: number;
   reorder_level: number;
   is_active: boolean;
+  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -120,9 +124,12 @@ export interface Invoice {
   subtotal: number;
   tax: number;
   total: number;
+  amount_paid: number;
+  balance_due: number;
   status: InvoiceStatus;
   notes?: string;
   items?: InvoiceItem[];
+  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -153,9 +160,12 @@ export interface Bill {
   subtotal: number;
   tax: number;
   total: number;
+  amount_paid: number;
+  balance_due: number;
   status: BillStatus;
   notes?: string;
   items?: BillItem[];
+  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -176,6 +186,7 @@ export interface JournalEntry {
   account_code?: string;
   amount: number;
   type: JournalEntryType;
+  organization_id: string;
   created_at: Date;
 }
 
@@ -186,7 +197,10 @@ export interface Transaction {
   reference_number?: string;
   type: TransactionType;
   status: TransactionStatus;
+  source_type?: string;
+  source_id?: string;
   entries?: JournalEntry[];
+  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -270,7 +284,6 @@ export interface ProfitLoss {
 // REPORT TYPES
 // ============================================
 
-// Add to existing ProfitLossReport interface
 export interface ProfitLossReport {
   revenue: {
     total: number;
@@ -445,7 +458,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  organization_id?: string;
+  organization_id: string;
+  organization?: Organization;
   is_active: boolean;
   last_login?: Date;
   created_at: Date;

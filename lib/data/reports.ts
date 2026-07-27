@@ -4,8 +4,19 @@
 
 import { query } from '@/lib/db';
 import { ProfitLossReport, BalanceSheetReport, TrialBalanceReport } from '@/types';
+import { getCurrentOrganizationId } from '@/lib/auth';
+
+async function getOrgFilter(): Promise<string> {
+  const orgId = await getCurrentOrganizationId();
+  if (!orgId) {
+    throw new Error('Organization not found');
+  }
+  return orgId;
+}
 
 export async function getProfitLossReport(period: string = 'month', startDate?: string, endDate?: string): Promise<ProfitLossReport> {
+  const orgId = await getOrgFilter();
+  
   let dateFilter = '';
   
   if (startDate && endDate) {
@@ -33,8 +44,6 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     }
   }
   
-  // Get Revenue accounts (type = 'Revenue')
-  // This includes revenue from invoices AND manual journal entries
   const revenueResult = await query(`
     SELECT 
       a.id, 
@@ -47,14 +56,14 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     LEFT JOIN transactions t ON je.transaction_id = t.id
     WHERE a.type = 'Revenue' 
       AND a.is_active = true
+      AND a.organization_id = $1
       AND je.type = 'credit'
       AND t.status = 'posted'
       ${dateFilter}
     GROUP BY a.id, a.name, a.code
     ORDER BY a.code
-  `);
+  `, [orgId]);
   
-  // Get Cost of Goods Sold (if applicable)
   const cogsResult = await query(`
     SELECT 
       a.id, 
@@ -66,14 +75,13 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     LEFT JOIN transactions t ON je.transaction_id = t.id
     WHERE (a.code = '5000' OR a.name ILIKE '%cost of goods%')
       AND a.is_active = true
+      AND a.organization_id = $1
       AND je.type = 'debit'
       AND t.status = 'posted'
       ${dateFilter}
     GROUP BY a.id, a.name, a.code
-  `);
+  `, [orgId]);
   
-  // Get Operating Expenses
-  // This includes expenses from bills AND manual journal entries
   const expenseResult = await query(`
     SELECT 
       a.id, 
@@ -86,13 +94,14 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     LEFT JOIN transactions t ON je.transaction_id = t.id
     WHERE a.type = 'Expense' 
       AND a.is_active = true
-      AND a.code NOT LIKE '5000'  -- Exclude COGS if separate
+      AND a.organization_id = $1
+      AND a.code NOT LIKE '5000'
       AND je.type = 'debit'
       AND t.status = 'posted'
       ${dateFilter}
     GROUP BY a.id, a.name, a.code
     ORDER BY a.code
-  `);
+  `, [orgId]);
   
   const revenueItems = revenueResult.rows.map(row => ({
     account_id: row.id,
@@ -139,16 +148,15 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
 }
 
 export async function getBalanceSheetReport(asAtDate?: string): Promise<BalanceSheetReport> {
-  const dateFilter = asAtDate ? `AND created_at <= '${asAtDate}'` : '';
+  const orgId = await getOrgFilter();
   
-  // Get all Asset, Liability, and Equity accounts
-  // This includes balances affected by manual journal entries
   const accountsResult = await query(`
     SELECT id, code, name, type, balance, normal_balance
     FROM accounts
     WHERE is_active = true
+      AND organization_id = $1
     ORDER BY code
-  `);
+  `, [orgId]);
   
   const report: BalanceSheetReport = {
     assets: {
@@ -177,7 +185,6 @@ export async function getBalanceSheetReport(asAtDate?: string): Promise<BalanceS
         balance: balance
       };
       
-      // Current assets: 1000-1099, Fixed assets: 1100+
       if (account.code.startsWith('1') && parseInt(account.code) < 1100) {
         report.assets.current.items.push(assetItem);
         report.assets.current.total += balance;
@@ -194,7 +201,6 @@ export async function getBalanceSheetReport(asAtDate?: string): Promise<BalanceS
         balance: balance
       };
       
-      // Current liabilities: 2000-2099, Long term: 2100+
       if (account.code.startsWith('2') && parseInt(account.code) < 2100) {
         report.liabilities.current.items.push(liabilityItem);
         report.liabilities.current.total += balance;
@@ -219,14 +225,15 @@ export async function getBalanceSheetReport(asAtDate?: string): Promise<BalanceS
 }
 
 export async function getTrialBalanceReport(asAtDate?: string): Promise<TrialBalanceReport> {
-  // Get ALL accounts including Revenue and Expense
-  // Manual journal entries flow through the journal_entries table
+  const orgId = await getOrgFilter();
+  
   const accountsResult = await query(`
     SELECT id, code, name, type, normal_balance, balance
     FROM accounts
     WHERE is_active = true
+      AND organization_id = $1
     ORDER BY code
-  `);
+  `, [orgId]);
   
   const reportAccounts = [];
   let totalDebits = 0;
@@ -237,8 +244,6 @@ export async function getTrialBalanceReport(asAtDate?: string): Promise<TrialBal
     let debit = 0;
     let credit = 0;
     
-    // Assets and Expenses normally have debit balances
-    // Liabilities, Equity, Revenue normally have credit balances
     if (account.normal_balance === 'debit') {
       debit = Math.abs(balance);
       totalDebits += debit;
@@ -262,112 +267,5 @@ export async function getTrialBalanceReport(asAtDate?: string): Promise<TrialBal
     totalDebits: totalDebits,
     totalCredits: totalCredits,
     isBalanced: Math.abs(totalDebits - totalCredits) < 0.01
-  };
-}
-
-export async function getRecentTransactions(limit: number = 50): Promise<any[]> {
-  // Include manual journal entries in recent transactions
-  const result = await query(`
-    SELECT 
-      t.id,
-      t.date,
-      t.description,
-      t.reference_number,
-      t.type,
-      t.source_type,
-      t.status,
-      json_agg(json_build_object(
-        'account_name', a.name,
-        'account_code', a.code,
-        'amount', je.amount,
-        'type', je.type
-      )) as entries
-    FROM transactions t
-    LEFT JOIN journal_entries je ON t.id = je.transaction_id
-    LEFT JOIN accounts a ON je.account_id = a.id
-    WHERE t.status = 'posted'
-    GROUP BY t.id
-    ORDER BY t.date DESC
-    LIMIT $1
-  `, [limit]);
-  
-  return result.rows;
-}
-
-export async function getJournalEntriesForReport(
-  startDate: string,
-  endDate: string
-): Promise<any[]> {
-  const result = await query(`
-    SELECT 
-      mje.entry_number,
-      mje.date,
-      mje.description,
-      mje.reference,
-      mjel.account_id,
-      a.name as account_name,
-      a.code as account_code,
-      a.type as account_type,
-      mjel.amount,
-      mjel.type as debit_credit
-    FROM manual_journal_entries mje
-    JOIN manual_journal_entry_lines mjel ON mje.id = mjel.entry_id
-    JOIN accounts a ON mjel.account_id = a.id
-    WHERE mje.date BETWEEN $1 AND $2
-      AND mje.status = 'posted'
-    ORDER BY mje.date DESC
-  `, [startDate, endDate]);
-  
-  return result.rows;
-}
-
-export async function getDashboardSummary(): Promise<any> {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  
-  // Current month revenue (includes manual entries)
-  const revenueResult = await query(`
-    SELECT COALESCE(SUM(je.amount), 0) as total
-    FROM journal_entries je
-    JOIN transactions t ON je.transaction_id = t.id
-    JOIN accounts a ON je.account_id = a.id
-    WHERE a.type = 'Revenue'
-      AND je.type = 'credit'
-      AND t.status = 'posted'
-      AND t.date >= $1
-  `, [startOfMonth.toISOString().split('T')[0]]);
-  
-  // Current month expenses (includes manual entries)
-  const expenseResult = await query(`
-    SELECT COALESCE(SUM(je.amount), 0) as total
-    FROM journal_entries je
-    JOIN transactions t ON je.transaction_id = t.id
-    JOIN accounts a ON je.account_id = a.id
-    WHERE a.type = 'Expense'
-      AND je.type = 'debit'
-      AND t.status = 'posted'
-      AND t.date >= $1
-  `, [startOfMonth.toISOString().split('T')[0]]);
-  
-  // Outstanding invoices
-  const invoicesResult = await query(`
-    SELECT COALESCE(SUM(total), 0) as total
-    FROM invoices
-    WHERE status IN ('sent', 'overdue')
-  `);
-  
-  // Outstanding bills
-  const billsResult = await query(`
-    SELECT COALESCE(SUM(total), 0) as total
-    FROM bills
-    WHERE status IN ('received', 'overdue')
-  `);
-  
-  return {
-    monthlyRevenue: parseFloat(revenueResult.rows[0].total),
-    monthlyExpenses: parseFloat(expenseResult.rows[0].total),
-    monthlyProfit: parseFloat(revenueResult.rows[0].total) - parseFloat(expenseResult.rows[0].total),
-    outstandingInvoices: parseFloat(invoicesResult.rows[0].total),
-    outstandingBills: parseFloat(billsResult.rows[0].total)
   };
 }
