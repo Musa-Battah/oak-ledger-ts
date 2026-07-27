@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { hashPassword, generateToken, createSession, setAuthCookie, updateLastLogin } from '@/lib/auth';
+import { hashPassword, generateToken, setAuthCookie, updateLastLogin } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
   try {
     const { name, email, password, organization_name } = await request.json();
     
-    // Validate input
     if (!name || !email || !password || !organization_name) {
       return NextResponse.json(
         { error: 'All fields are required' },
@@ -22,7 +21,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check if user exists
     const existingUser = await query(
       'SELECT id FROM users WHERE email = $1',
       [email]
@@ -53,22 +51,17 @@ export async function POST(request: NextRequest) {
       [userId, name, email, passwordHash, 'admin', orgId]
     );
     
-    // Generate token (now async with jose)
-    const token = await generateToken({ id: userId, email, role: 'admin' });
+    // Generate token with organizationId
+    const token = await generateToken({ 
+      id: userId, 
+      email, 
+      role: 'admin',
+      organizationId: orgId 
+    });
     
-    // Create session
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    
-    await createSession(userId, token, expiresAt);
-    
-    // Set cookie
     await setAuthCookie(token);
-    
-    // Update last login
     await updateLastLogin(userId);
     
-    // Get user data
     const userResult = await query(
       'SELECT id, name, email, role, organization_id, created_at FROM users WHERE id = $1',
       [userId]

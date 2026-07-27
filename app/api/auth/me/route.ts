@@ -27,8 +27,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: {
-        ...user,
-        organization
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organization_id: user.organization_id,
+        organization,
+        created_at: user.created_at
       }
     });
   } catch (error) {

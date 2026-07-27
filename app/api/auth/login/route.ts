@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyPassword, generateToken, createSession, setAuthCookie, updateLastLogin, getUserByEmail } from '@/lib/auth';
+import { verifyPassword, generateToken, setAuthCookie, updateLastLogin, getUserByEmail } from '@/lib/auth';
 import { query } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
     
-    // Validate input
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
@@ -14,7 +13,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Get user
     const user = await getUserByEmail(email);
     if (!user) {
       return NextResponse.json(
@@ -23,7 +21,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Verify password
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
       return NextResponse.json(
@@ -32,27 +29,17 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Generate token (now async with jose)
-    const token = await generateToken({ id: user.id, email: user.email, role: user.role });
+    // Generate token with organizationId
+    const token = await generateToken({ 
+      id: user.id, 
+      email: user.email, 
+      role: user.role,
+      organizationId: user.organization_id 
+    });
     
-    // Create session
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    
-    await createSession(
-      user.id,
-      token,
-      expiresAt,
-      request.headers.get('user-agent') || undefined
-    );
-    
-    // Set cookie
     await setAuthCookie(token);
-    
-    // Update last login
     await updateLastLogin(user.id);
     
-    // Get user data
     const userResult = await query(
       'SELECT id, name, email, role, organization_id, created_at FROM users WHERE id = $1',
       [user.id]
