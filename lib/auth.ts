@@ -3,7 +3,7 @@
 
 import bcrypt from 'bcryptjs';
 import { query, safeQuery, closePool } from './db';
-import { User, UserRole, Organization } from '@/types';
+import { UserRole } from '@/types';
 import { SignJWT, jwtVerify } from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -187,6 +187,7 @@ export async function logout(token: string): Promise<void> {
   await clearAuthCookie();
 }
 
+// Check if user has permission - fixed type issue
 export function hasPermission(user: any, requiredRole: UserRole): boolean {
   if (!user) return false;
   
@@ -196,7 +197,13 @@ export function hasPermission(user: any, requiredRole: UserRole): boolean {
     viewer: 1,
   };
   
-  return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
+  // Ensure user.role is a valid UserRole
+  const userRole = user.role as UserRole;
+  if (!userRole || !(userRole in roleHierarchy)) {
+    return false;
+  }
+  
+  return roleHierarchy[userRole] >= roleHierarchy[requiredRole];
 }
 
 // Get current user's organization ID (for filtering)
@@ -220,4 +227,4 @@ export default {
   clearAuthCookie,
   logout,
   hasPermission,
-}; 
+};
