@@ -110,12 +110,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       // Calculate NHF (2.5% of basic salary)
       const nhfDeduction = employee.basic_salary * 0.025;
 
-      // Calculate total deductions
-      const totalDeductions = taxDeduction + pensionDeduction + nhfDeduction;
-      const netPay = grossPay - totalDeductions;
+      // Calculate total deductions for this employee
+      const employeeTotalDeductions = taxDeduction + pensionDeduction + nhfDeduction;
+      const netPay = grossPay - employeeTotalDeductions;
 
       totalGross += grossPay;
-      totalDeductions += totalDeductions;
+      totalDeductions += employeeTotalDeductions;
       totalNet += netPay;
 
       // Insert payroll entry
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
         [
           uuidv4(), runId, employee.id, orgId,
           grossPay, taxDeduction, pensionDeduction, nhfDeduction,
-          totalDeductions, netPay
+          employeeTotalDeductions, netPay
         ]
       );
     }
