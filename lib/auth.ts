@@ -220,4 +220,4 @@ export default {
   clearAuthCookie,
   logout,
   hasPermission,
-};
+}; 
