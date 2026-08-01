@@ -42,11 +42,11 @@ export default function CSVImporter({ type, onSuccess }: CSVImporterProps) {
 
       if (res.ok) {
         setResult({
-          imported: data.imported,
-          skipped: data.skipped,
+          imported: data.imported || 0,
+          skipped: data.skipped || 0,
           errors: data.errors || [],
         });
-        toast.success(data.message);
+        toast.success(data.message || 'Import completed');
         if (onSuccess) onSuccess();
       } else {
         toast.error(data.error || 'Import failed');
@@ -93,8 +93,8 @@ export default function CSVImporter({ type, onSuccess }: CSVImporterProps) {
       {result && (
         <div className="csv-importer-result">
           <div className="csv-importer-stats">
-            <span className="success">Imported: {result.imported}</span>
-            <span className="warning">Skipped: {result.skipped}</span>
+            <span className="success">✅ Imported: {result.imported}</span>
+            <span className="warning">⚠️ Skipped: {result.skipped}</span>
           </div>
           {result.errors.length > 0 && (
             <details className="csv-importer-errors">
@@ -114,10 +114,6 @@ export default function CSVImporter({ type, onSuccess }: CSVImporterProps) {
           display: flex;
           flex-direction: column;
           gap: 1rem;
-          padding: 1rem;
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: 12px;
         }
         .csv-importer-dropzone {
           border: 2px dashed var(--border);
@@ -150,9 +146,10 @@ export default function CSVImporter({ type, onSuccess }: CSVImporterProps) {
         .csv-importer-file {
           display: flex;
           justify-content: space-between;
-          padding: 0.5rem;
+          padding: 0.5rem 1rem;
           background: var(--bg-secondary);
           border-radius: 8px;
+          font-size: 0.875rem;
         }
         .csv-importer-size {
           font-size: 0.75rem;
@@ -166,7 +163,7 @@ export default function CSVImporter({ type, onSuccess }: CSVImporterProps) {
         }
         .csv-importer-stats {
           display: flex;
-          gap: 1rem;
+          gap: 1.5rem;
         }
         .csv-importer-stats .success {
           color: var(--success);

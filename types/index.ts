@@ -655,3 +655,27 @@ export interface PayrollNHFConfig {
   effective_year: number;
   is_active: boolean;
 }
+
+// ============================================
+// JOURNAL ENTRY IMPORT TYPES
+// ============================================
+
+export interface JournalEntryImportRow {
+  date: string;
+  description: string;
+  reference?: string;
+  account_code: string;
+  debit?: number;
+  credit?: number;
+  errors?: string[];
+  isValid?: boolean;
+}
+
+export interface JournalEntryImportResult {
+  success: boolean;
+  imported: number;
+  skipped: number;
+  errors: string[];
+  entries: any[];
+  message: string;
+}
