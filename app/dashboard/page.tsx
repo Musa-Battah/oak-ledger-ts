@@ -71,10 +71,13 @@ export default function DashboardPage() {
         
         const statsData = await statsRes.json();
         const invoicesData = await invoicesRes.json();
-        let payrollData = { success: false, data: [] };
+        let payrollData = { success: false, data: [] as RecentPayrollRun[] };
         
         try {
-          payrollData = await payrollRes.json();
+          const result = await payrollRes.json();
+          if (result.success && result.data) {
+            payrollData = { success: true, data: result.data };
+          }
         } catch {
           // Payroll may not be set up yet
         }
@@ -82,8 +85,8 @@ export default function DashboardPage() {
         if (statsData.success) {
           setStats({
             ...statsData.data,
-            totalEmployees: payrollData.success ? payrollData.data?.length || 0 : 0,
-            recentPayrollAmount: payrollData.success && payrollData.data?.length > 0 
+            totalEmployees: payrollData.success ? payrollData.data.length || 0 : 0,
+            recentPayrollAmount: payrollData.success && payrollData.data.length > 0 
               ? payrollData.data[0]?.total_net_pay || 0 
               : 0
           });
