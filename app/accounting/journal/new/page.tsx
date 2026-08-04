@@ -213,7 +213,7 @@ export default function NewJournalEntryPage() {
               <table className="journal-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '30%' }}>Account</th>
+                    <th style={{ width: '30%' }}>Account (Name or Code)</th>
                     <th style={{ width: '15%' }}>Category</th>
                     <th style={{ width: '15%' }}>Sub-Category</th>
                     <th style={{ width: '15%' }}>Debit (₦)</th>
@@ -231,7 +231,7 @@ export default function NewJournalEntryPage() {
                           className="account-select"
                           required
                         >
-                          <option value="">Select Account</option>
+                          <option value="">Select Account (Name or Code)</option>
                           {filteredAccounts.map((account) => (
                             <option key={account.id} value={account.id}>
                               {account.code} - {account.name} ({account.type})
@@ -240,7 +240,7 @@ export default function NewJournalEntryPage() {
                         </select>
                         <input
                           type="text"
-                          placeholder="Search accounts..."
+                          placeholder="Search by name or code..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="account-search"

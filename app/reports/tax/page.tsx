@@ -26,6 +26,13 @@ interface VATReport {
   }>;
 }
 
+const periodLabels: Record<string, string> = {
+  all: 'All Time',
+  month: 'This Month',
+  quarter: 'This Quarter',
+  year: 'This Year'
+};
+
 export default function TaxReportPage() {
   const [report, setReport] = useState<VATReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +97,7 @@ export default function TaxReportPage() {
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
           >
+            <option value="all">All Time</option>
             <option value="month">This Month</option>
             <option value="quarter">This Quarter</option>
             <option value="year">This Year</option>

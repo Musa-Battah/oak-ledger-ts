@@ -10,7 +10,7 @@ interface ImportPreview {
   date: string;
   description: string;
   reference: string;
-  account_code: string;
+  account_name: string;
   debit: number;
   credit: number;
   isValid: boolean;
@@ -22,7 +22,7 @@ export default function ImportJournalPage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ImportPreview[]>([]);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; message: string } | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; message: string } | null>(null);
   const [step, setStep] = useState<'upload' | 'preview' | 'result'>('upload');
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +83,7 @@ export default function ImportJournalPage() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/journal/import?confirm=true', {
+      const res = await fetch('/api/journal/import', {
         method: 'POST',
         body: formData,
       });
@@ -93,7 +93,6 @@ export default function ImportJournalPage() {
       if (res.ok) {
         setImportResult({
           imported: data.imported || 0,
-          skipped: data.skipped || 0,
           message: data.message || 'Import completed'
         });
         setStep('result');
@@ -140,16 +139,16 @@ export default function ImportJournalPage() {
             <div className="import-info">
               <h3>File Format Requirements</h3>
               <ul>
-                <li><strong>Required columns:</strong> Date, Description, Account Code, Debit, Credit</li>
+                <li><strong>Required columns:</strong> Date, Description, Account Name, Debit or Credit</li>
                 <li><strong>Optional columns:</strong> Reference</li>
                 <li><strong>Date format:</strong> YYYY-MM-DD</li>
-                <li><strong>Account Code:</strong> Must match an existing account in your chart of accounts</li>
+                <li><strong>Account Name:</strong> Must match existing account or will be created</li>
                 <li><strong>Balance:</strong> Total debits must equal total credits for each journal entry</li>
               </ul>
               <div className="template-download">
-                <Link href="/templates/journal_template.csv" download>
+                <a href="/templates/journal_template.csv" download>
                   <button className="btn-secondary">📄 Download Template</button>
-                </Link>
+                </a>
               </div>
             </div>
 
@@ -214,7 +213,7 @@ export default function ImportJournalPage() {
                     <th>Date</th>
                     <th>Description</th>
                     <th>Reference</th>
-                    <th>Account Code</th>
+                    <th>Account</th>
                     <th>Debit</th>
                     <th>Credit</th>
                     <th>Status</th>
@@ -227,7 +226,7 @@ export default function ImportJournalPage() {
                       <td>{entry.date}</td>
                       <td>{entry.description}</td>
                       <td>{entry.reference || '-'}</td>
-                      <td>{entry.account_code}</td>
+                      <td>{entry.account_name}</td>
                       <td>{entry.debit > 0 ? `₦${entry.debit.toLocaleString()}` : '-'}</td>
                       <td>{entry.credit > 0 ? `₦${entry.credit.toLocaleString()}` : '-'}</td>
                       <td>
@@ -242,19 +241,6 @@ export default function ImportJournalPage() {
                 </tbody>
               </table>
             </div>
-
-            {preview.some(e => !e.isValid) && (
-              <div className="preview-errors">
-                <h4>Errors Found:</h4>
-                <ul>
-                  {preview.filter(e => !e.isValid).map((entry) => (
-                    entry.errors.map((err, i) => (
-                      <li key={`${entry.row}-${i}`}>Row {entry.row}: {err}</li>
-                    ))
-                  ))}
-                </ul>
-              </div>
-            )}
 
             <div className="preview-summary">
               <span>Total Entries: {preview.length}</span>
@@ -293,10 +279,6 @@ export default function ImportJournalPage() {
               <div className="stat-item">
                 <span className="stat-label">Imported</span>
                 <span className="stat-value success">{importResult.imported}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Skipped</span>
-                <span className="stat-value warning">{importResult.skipped}</span>
               </div>
             </div>
 
@@ -409,16 +391,6 @@ export default function ImportJournalPage() {
         }
         .preview-table tr.invalid {
           border-left: 3px solid var(--danger);
-        }
-        .preview-errors {
-          margin: 1rem 0;
-          padding: 1rem;
-          background: var(--danger-dim);
-          border-radius: 8px;
-          color: var(--danger);
-        }
-        .preview-errors ul {
-          margin: 0.5rem 0 0 1.5rem;
         }
         .preview-summary {
           display: flex;

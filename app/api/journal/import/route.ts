@@ -4,6 +4,34 @@ import { getCurrentOrganizationId, getCurrentUser } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
 
+interface ColumnMap {
+  date: string | null;
+  description: string | null;
+  reference: string | null;
+  accountCode: string | null;
+  accountName: string | null;
+  debit: string | null;
+  credit: string | null;
+}
+
+interface ImportEntry {
+  row: number;
+  date: Date;
+  description: string;
+  reference: string | null;
+  account_code: string;
+  account_name: string;
+  account_id: string | null;
+  debit: number;
+  credit: number;
+  isValid: boolean;
+  errors: string[];
+}
+
+interface EntryGroup {
+  [key: string]: ImportEntry[];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const orgId = await getCurrentOrganizationId();
@@ -47,59 +75,84 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Flexible column mapping
+    // Get headers
     const headers = Object.keys(data[0]);
-    
-    const columnMap = {
-      date: headers.find(h => /date/i.test(h)) || null,
-      description: headers.find(h => /description|desc|narrative/i.test(h)) || null,
-      reference: headers.find(h => /reference|ref|number|no/i.test(h)) || null,
-      accountCode: headers.find(h => /account.?code|code|account no|account/i.test(h)) || null,
-      debit: headers.find(h => /debit|dr/i.test(h)) || null,
-      credit: headers.find(h => /credit|cr/i.test(h)) || null,
+    console.log('📋 Headers found in file:', headers);
+
+    // Column mapping
+    const dateHeader = headers.find(h => /^date$/i.test(h)) || headers.find(h => /date/i.test(h));
+    const descriptionHeader = headers.find(h => /^description$/i.test(h)) || headers.find(h => /description|desc|narrative/i.test(h));
+    const referenceHeader = headers.find(h => /^reference$/i.test(h)) || headers.find(h => /reference|ref/i.test(h));
+    const accountNameHeader = headers.find(h => /^account name$/i.test(h)) || headers.find(h => /account name|account|ledger/i.test(h));
+    const debitHeader = headers.find(h => /^debit$/i.test(h)) || headers.find(h => /debit|dr/i.test(h));
+    const creditHeader = headers.find(h => /^credit$/i.test(h)) || headers.find(h => /credit|cr/i.test(h));
+
+    const columnMap: ColumnMap = {
+      date: dateHeader || null,
+      description: descriptionHeader || null,
+      reference: referenceHeader || null,
+      accountCode: null,
+      accountName: accountNameHeader || null,
+      debit: debitHeader || null,
+      credit: creditHeader || null,
     };
 
-    // Check required columns
-    const requiredFields = ['date', 'description', 'accountCode'];
-    const missingFields = requiredFields.filter(f => !columnMap[f]);
-    
-    if (missingFields.length > 0) {
-      return NextResponse.json({
-        success: false,
-        error: `Missing required columns: ${missingFields.join(', ')}`,
-        required: requiredFields,
-        found: headers,
-        columnMap: columnMap
-      }, { status: 400 });
-    }
+    console.log('🔍 Column mapping:', columnMap);
 
-    // Check if either debit or credit column exists
-    if (!columnMap.debit && !columnMap.credit) {
+    // Check required columns
+    if (!columnMap.date) {
       return NextResponse.json({
         success: false,
-        error: 'Missing either Debit or Credit column',
+        error: 'Missing Date column',
         found: headers
       }, { status: 400 });
     }
 
-    // Get accounts for validation
+    if (!columnMap.description) {
+      return NextResponse.json({
+        success: false,
+        error: 'Missing Description column',
+        found: headers
+      }, { status: 400 });
+    }
+
+    if (!columnMap.accountName) {
+      return NextResponse.json({
+        success: false,
+        error: 'Missing Account Name column',
+        found: headers
+      }, { status: 400 });
+    }
+
+    // Check if either debit or credit exists
+    if (!columnMap.debit && !columnMap.credit) {
+      return NextResponse.json({
+        success: false,
+        error: 'Missing both Debit and Credit columns. Need at least one.',
+        found: headers
+      }, { status: 400 });
+    }
+
+    // Get existing accounts
     const accountsResult = await query(
-      'SELECT code, id, name, type FROM accounts WHERE organization_id = $1 AND is_active = true',
+      'SELECT code, id, name, type, normal_balance FROM accounts WHERE organization_id = $1',
       [orgId]
     );
-    const accountMap = new Map();
-    accountsResult.rows.forEach(a => accountMap.set(a.code, a));
+    const accountNameMap = new Map<string, any>();
+    accountsResult.rows.forEach(a => {
+      accountNameMap.set(a.name.toLowerCase(), a);
+    });
 
     // Process entries
-    const entries = [];
-    const errors = [];
+    const entries: ImportEntry[] = [];
+    const errors: string[] = [];
     let rowNumber = 2;
 
     for (const row of data) {
-      const rowErrors = [];
+      const rowErrors: string[] = [];
       
-      // Get values using column map - handle undefined and type conversion
-      const dateStr = row[columnMap.date];
+      // Get date
+      const dateStr = row[columnMap.date as string];
       let parsedDate: Date;
       if (dateStr === undefined || dateStr === null || dateStr === '') {
         rowErrors.push(`Row ${rowNumber}: Date is required`);
@@ -114,37 +167,83 @@ export async function POST(request: NextRequest) {
         rowErrors.push(`Row ${rowNumber}: Invalid date format. Use YYYY-MM-DD`);
       }
 
-      const description = row[columnMap.description] ? String(row[columnMap.description]).trim() : '';
+      // Get description
+      const description = row[columnMap.description as string] ? String(row[columnMap.description as string]).trim() : '';
       if (!description) {
         rowErrors.push(`Row ${rowNumber}: Description is required`);
       }
 
-      // Handle account code - convert to string
-      let accountCode = '';
-      if (row[columnMap.accountCode] !== undefined && row[columnMap.accountCode] !== null) {
-        accountCode = String(row[columnMap.accountCode]).trim();
-      }
+      // Get account name
+      let accountName = '';
+      let account = null;
       
-      const account = accountMap.get(accountCode);
-      if (!accountCode) {
-        rowErrors.push(`Row ${rowNumber}: Account code is required`);
-      } else if (!account) {
-        rowErrors.push(`Row ${rowNumber}: Account code '${accountCode}' not found`);
+      if (columnMap.accountName) {
+        const nameValue = row[columnMap.accountName];
+        if (nameValue !== undefined && nameValue !== null) {
+          accountName = String(nameValue).trim();
+          account = accountNameMap.get(accountName.toLowerCase());
+          if (!account) {
+            for (const [key, value] of accountNameMap) {
+              if (accountName.toLowerCase().includes(key) || key.includes(accountName.toLowerCase())) {
+                account = value;
+                break;
+              }
+            }
+          }
+        }
       }
 
-      // Get debit and credit values - handle undefined
+      // If account not found, create it
+      if (!account) {
+        const newAccountId = uuidv4();
+        const newAccountCode = `A${String(accountNameMap.size + 1).padStart(4, '0')}`;
+        
+        await query(
+          `INSERT INTO accounts (id, code, name, type, normal_balance, organization_id, is_active)
+           VALUES ($1, $2, $3, 'Asset', 'debit', $4, true)`,
+          [newAccountId, newAccountCode, accountName || 'Unnamed Account', orgId]
+        );
+        
+        account = {
+          id: newAccountId,
+          code: newAccountCode,
+          name: accountName || 'Unnamed Account',
+          type: 'Asset',
+          normal_balance: 'debit'
+        };
+        accountNameMap.set(accountName.toLowerCase(), account);
+        console.log(`✅ Created new account: ${newAccountCode} - ${accountName}`);
+      }
+
+      // Get debit and credit
       let debit = 0;
       let credit = 0;
       
-      if (columnMap.debit && row[columnMap.debit] !== undefined && row[columnMap.debit] !== null && row[columnMap.debit] !== '') {
-        debit = parseFloat(String(row[columnMap.debit]).replace(/,/g, '')) || 0;
-      }
-      if (columnMap.credit && row[columnMap.credit] !== undefined && row[columnMap.credit] !== null && row[columnMap.credit] !== '') {
-        credit = parseFloat(String(row[columnMap.credit]).replace(/,/g, '')) || 0;
+      if (columnMap.debit) {
+        const debitValue = row[columnMap.debit];
+        if (debitValue !== undefined && debitValue !== null && debitValue !== '') {
+          const cleanDebit = String(debitValue).replace(/,/g, '').replace(/₦/g, '').trim();
+          debit = parseFloat(cleanDebit) || 0;
+        }
       }
       
+      if (columnMap.credit) {
+        const creditValue = row[columnMap.credit];
+        if (creditValue !== undefined && creditValue !== null && creditValue !== '') {
+          const cleanCredit = String(creditValue).replace(/,/g, '').replace(/₦/g, '').trim();
+          credit = parseFloat(cleanCredit) || 0;
+        }
+      }
+      
+      // Fallback: try reading Credit directly from row
+      if (credit === 0 && row['Credit'] !== undefined && row['Credit'] !== null && row['Credit'] !== '') {
+        const cleanCredit = String(row['Credit']).replace(/,/g, '').replace(/₦/g, '').trim();
+        credit = parseFloat(cleanCredit) || 0;
+      }
+      
+      // Validation
       if (debit < 0 || credit < 0) {
-        rowErrors.push(`Row ${rowNumber}: Debit and credit amounts must be positive`);
+        rowErrors.push(`Row ${rowNumber}: Amounts must be positive`);
       }
       
       if (debit > 0 && credit > 0) {
@@ -156,17 +255,21 @@ export async function POST(request: NextRequest) {
       }
 
       // Get reference
-      let reference = null;
-      if (columnMap.reference && row[columnMap.reference] !== undefined && row[columnMap.reference] !== null) {
-        reference = String(row[columnMap.reference]).trim() || null;
+      let reference: string | null = null;
+      if (columnMap.reference) {
+        const refValue = row[columnMap.reference];
+        if (refValue !== undefined && refValue !== null) {
+          reference = String(refValue).trim() || null;
+        }
       }
 
-      const entry = {
+      const entry: ImportEntry = {
         row: rowNumber,
         date: parsedDate,
         description: description || '',
         reference: reference,
-        account_code: accountCode,
+        account_code: account?.code || '',
+        account_name: account?.name || '',
         account_id: account?.id || null,
         debit: debit,
         credit: credit,
@@ -184,16 +287,29 @@ export async function POST(request: NextRequest) {
     // Check if any entries are invalid
     const invalidEntries = entries.filter(e => !e.isValid);
     if (invalidEntries.length > 0) {
+      const errorDetails = invalidEntries.map(e => ({
+        row: e.row,
+        errors: e.errors,
+        data: {
+          date: e.date.toISOString().split('T')[0],
+          description: e.description,
+          account_name: e.account_name,
+          debit: e.debit,
+          credit: e.credit
+        }
+      }));
+      
       return NextResponse.json({
         success: false,
         error: `${invalidEntries.length} entries have validation errors`,
-        entries: entries,
+        message: 'Please fix the errors below and try again',
+        errorDetails: errorDetails,
         errors: errors
       }, { status: 400 });
     }
 
-    // Check if each entry group balances
-    const entryGroups = {};
+    // Group by journal entry (date + description)
+    const entryGroups: EntryGroup = {};
     for (const entry of entries) {
       const key = `${entry.date.toISOString()}_${entry.description}`;
       if (!entryGroups[key]) {
@@ -202,15 +318,16 @@ export async function POST(request: NextRequest) {
       entryGroups[key].push(entry);
     }
 
+    // Check balance for each group
     for (const [key, group] of Object.entries(entryGroups)) {
       const totalDebit = group.reduce((sum, e) => sum + e.debit, 0);
       const totalCredit = group.reduce((sum, e) => sum + e.credit, 0);
       if (Math.abs(totalDebit - totalCredit) > 0.01) {
         return NextResponse.json({
           success: false,
-          error: `Journal entry "${key}" is not balanced. Debits: ${totalDebit}, Credits: ${totalCredit}`,
-          entries: entries,
-          errors: [`Journal entry "${key}" is not balanced`]
+          error: `Journal entry "${key}" is not balanced`,
+          message: `Debits: ${totalDebit}, Credits: ${totalCredit}. They must be equal.`,
+          entries: entries
         }, { status: 400 });
       }
     }
@@ -224,6 +341,7 @@ export async function POST(request: NextRequest) {
         const entryNumber = `IMP-${Date.now()}-${imported + 1}`;
         const entryId = uuidv4();
 
+        // Insert manual journal entry
         await client.query(
           `INSERT INTO manual_journal_entries (
             id, entry_number, date, description, reference, status, created_by, organization_id
@@ -238,9 +356,9 @@ export async function POST(request: NextRequest) {
 
           await client.query(
             `INSERT INTO manual_journal_entry_lines (
-              id, entry_id, account_id, amount, type
-            ) VALUES ($1, $2, $3, $4, $5)`,
-            [lineId, entryId, entry.account_id, amount, type]
+              id, entry_id, account_id, amount, type, organization_id
+            ) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [lineId, entryId, entry.account_id, amount, type, orgId]
           );
 
           // Update account balance
@@ -254,7 +372,7 @@ export async function POST(request: NextRequest) {
             const isDebit = type === 'debit';
             const normalBalanceDebit = account.rows[0].normal_balance === 'debit';
 
-            let newBalance;
+            let newBalance: number;
             if (isDebit) {
               newBalance = normalBalanceDebit ? currentBalance + amount : currentBalance - amount;
             } else {
@@ -290,6 +408,13 @@ export async function POST(request: NextRequest) {
             [jeId, transactionId, entry.account_id, amount, type, orgId]
           );
         }
+
+        // Log audit - WITHOUT organization_id since it doesn't exist
+        await client.query(
+          `INSERT INTO audit_logs (id, action, entity_type, entity_id, details, created_at)
+           VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+          [uuidv4(), 'IMPORT', 'journal_entry', entryId, JSON.stringify({ entryNumber, lines: group.length })]
+        );
 
         imported++;
       }

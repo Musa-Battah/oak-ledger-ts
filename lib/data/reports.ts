@@ -21,6 +21,9 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
   
   if (startDate && endDate) {
     dateFilter = `AND t.date BETWEEN '${startDate}' AND '${endDate}'`;
+  } else if (period === 'all') {
+    // All Time - no date filter
+    dateFilter = '';
   } else {
     const now = new Date();
     switch (period) {
@@ -44,6 +47,7 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     }
   }
   
+  // Get Revenue accounts
   const revenueResult = await query(`
     SELECT 
       a.id, 
@@ -64,24 +68,7 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     ORDER BY a.code
   `, [orgId]);
   
-  const cogsResult = await query(`
-    SELECT 
-      a.id, 
-      a.name, 
-      a.code,
-      COALESCE(SUM(je.amount), 0) as total
-    FROM accounts a
-    LEFT JOIN journal_entries je ON a.id = je.account_id
-    LEFT JOIN transactions t ON je.transaction_id = t.id
-    WHERE (a.code = '5000' OR a.name ILIKE '%cost of goods%')
-      AND a.is_active = true
-      AND a.organization_id = $1
-      AND je.type = 'debit'
-      AND t.status = 'posted'
-      ${dateFilter}
-    GROUP BY a.id, a.name, a.code
-  `, [orgId]);
-  
+  // Get Expense accounts
   const expenseResult = await query(`
     SELECT 
       a.id, 
@@ -95,7 +82,6 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     WHERE a.type = 'Expense' 
       AND a.is_active = true
       AND a.organization_id = $1
-      AND a.code NOT LIKE '5000'
       AND je.type = 'debit'
       AND t.status = 'posted'
       ${dateFilter}
@@ -110,12 +96,6 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
     transaction_count: parseInt(row.transaction_count)
   }));
   
-  const cogsItems = cogsResult.rows.map(row => ({
-    account_id: row.id,
-    account_name: `${row.code} - ${row.name}`,
-    amount: parseFloat(row.total)
-  }));
-  
   const expenseItems = expenseResult.rows.map(row => ({
     account_id: row.id,
     account_name: `${row.code} - ${row.name}`,
@@ -124,10 +104,8 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
   }));
   
   const totalRevenue = revenueItems.reduce((sum, item) => sum + item.amount, 0);
-  const totalCOGS = cogsItems.reduce((sum, item) => sum + item.amount, 0);
   const totalExpenses = expenseItems.reduce((sum, item) => sum + item.amount, 0);
-  const grossProfit = totalRevenue - totalCOGS;
-  const netIncome = grossProfit - totalExpenses;
+  const netIncome = totalRevenue - totalExpenses;
   
   return {
     revenue: {
@@ -135,15 +113,15 @@ export async function getProfitLossReport(period: string = 'month', startDate?: 
       items: revenueItems
     },
     cogs: {
-      total: totalCOGS,
-      items: cogsItems
+      total: 0,
+      items: []
     },
     expenses: {
       total: totalExpenses,
       items: expenseItems
     },
-    grossProfit,
-    netIncome
+    grossProfit: totalRevenue,
+    netIncome: netIncome
   };
 }
 

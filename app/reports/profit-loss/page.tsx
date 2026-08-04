@@ -7,20 +7,32 @@ import Link from 'next/link';
 export const revalidate = 3600;
 
 interface PageProps {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; startDate?: string; endDate?: string }>;
 }
 
 export default async function ProfitLossPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const period = params?.period || 'month';
-  const report = await getProfitLossReport(period);
+  const startDate = params?.startDate;
+  const endDate = params?.endDate;
+  
+  const report = await getProfitLossReport(period, startDate, endDate);
   
   const periodLabels: Record<string, string> = {
+    all: 'All Time',
     today: 'Today',
     week: 'This Week',
     month: 'This Month',
     quarter: 'This Quarter',
-    year: 'This Year'
+    year: 'This Year',
+    custom: 'Custom Range'
+  };
+
+  const getPeriodLabel = () => {
+    if (period === 'custom' && startDate && endDate) {
+      return `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
+    }
+    return periodLabels[period] || period;
   };
 
   return (
@@ -30,12 +42,12 @@ export default async function ProfitLossPage({ searchParams }: PageProps) {
         <div className="ifrs-company-name">Oak Ledger</div>
         <div className="ifrs-report-title">Statement of Profit or Loss</div>
         <div className="ifrs-report-date">
-          For the period ended: {periodLabels[period] || period}
+          For the period: {getPeriodLabel()}
         </div>
-        <div className="action-buttons" style={{ marginTop: '1rem', textAlign: 'center' }}>
+        <div className="action-buttons" style={{ marginTop: '1rem', textAlign: 'center', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <PeriodSelector currentPeriod={period} />
           <PrintButton />
-          <Link href={`/api/reports/profit-loss/pdf?period=${period}`} target="_blank">
+          <Link href={`/api/reports/profit-loss/pdf?period=${period}${startDate ? `&startDate=${startDate}` : ''}${endDate ? `&endDate=${endDate}` : ''}`} target="_blank">
             <button className="btn-secondary">📄 Download PDF</button>
           </Link>
         </div>
