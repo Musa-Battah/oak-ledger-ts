@@ -8,8 +8,8 @@ interface ColumnMap {
   date: string | null;
   description: string | null;
   reference: string | null;
-  accountCode: string | null;
   accountName: string | null;
+  accountType: string | null;
   debit: string | null;
   credit: string | null;
 }
@@ -19,8 +19,8 @@ interface ImportEntry {
   date: Date;
   description: string;
   reference: string | null;
-  account_code: string;
   account_name: string;
+  account_type: string;
   account_id: string | null;
   debit: number;
   credit: number;
@@ -31,6 +31,16 @@ interface ImportEntry {
 interface EntryGroup {
   [key: string]: ImportEntry[];
 }
+
+// Account type mapping
+const ACCOUNT_TYPES = ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense'];
+const NORMAL_BALANCES: Record<string, string> = {
+  Asset: 'debit',
+  Liability: 'credit',
+  Equity: 'credit',
+  Revenue: 'credit',
+  Expense: 'debit'
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,7 +58,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
     }
 
-    // Parse file
     const buffer = Buffer.from(await file.arrayBuffer());
     const extension = file.name.split('.').pop()?.toLowerCase();
     
@@ -75,7 +84,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get headers
     const headers = Object.keys(data[0]);
     console.log('📋 Headers found in file:', headers);
 
@@ -84,6 +92,7 @@ export async function POST(request: NextRequest) {
     const descriptionHeader = headers.find(h => /^description$/i.test(h)) || headers.find(h => /description|desc|narrative/i.test(h));
     const referenceHeader = headers.find(h => /^reference$/i.test(h)) || headers.find(h => /reference|ref/i.test(h));
     const accountNameHeader = headers.find(h => /^account name$/i.test(h)) || headers.find(h => /account name|account|ledger/i.test(h));
+    const accountTypeHeader = headers.find(h => /^account type$/i.test(h)) || headers.find(h => /type|acct type|account type/i.test(h));
     const debitHeader = headers.find(h => /^debit$/i.test(h)) || headers.find(h => /debit|dr/i.test(h));
     const creditHeader = headers.find(h => /^credit$/i.test(h)) || headers.find(h => /credit|cr/i.test(h));
 
@@ -91,8 +100,8 @@ export async function POST(request: NextRequest) {
       date: dateHeader || null,
       description: descriptionHeader || null,
       reference: referenceHeader || null,
-      accountCode: null,
       accountName: accountNameHeader || null,
+      accountType: accountTypeHeader || null,
       debit: debitHeader || null,
       credit: creditHeader || null,
     };
@@ -101,36 +110,16 @@ export async function POST(request: NextRequest) {
 
     // Check required columns
     if (!columnMap.date) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing Date column',
-        found: headers
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing Date column', found: headers }, { status: 400 });
     }
-
     if (!columnMap.description) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing Description column',
-        found: headers
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing Description column', found: headers }, { status: 400 });
     }
-
     if (!columnMap.accountName) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing Account Name column',
-        found: headers
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing Account Name column', found: headers }, { status: 400 });
     }
-
-    // Check if either debit or credit exists
     if (!columnMap.debit && !columnMap.credit) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing both Debit and Credit columns. Need at least one.',
-        found: headers
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Missing Debit or Credit column', found: headers }, { status: 400 });
     }
 
     // Get existing accounts
@@ -162,7 +151,6 @@ export async function POST(request: NextRequest) {
       } else {
         parsedDate = new Date(dateStr);
       }
-      
       if (isNaN(parsedDate.getTime())) {
         rowErrors.push(`Row ${rowNumber}: Invalid date format. Use YYYY-MM-DD`);
       }
@@ -175,6 +163,7 @@ export async function POST(request: NextRequest) {
 
       // Get account name
       let accountName = '';
+      let accountType = '';
       let account = null;
       
       if (columnMap.accountName) {
@@ -182,37 +171,72 @@ export async function POST(request: NextRequest) {
         if (nameValue !== undefined && nameValue !== null) {
           accountName = String(nameValue).trim();
           account = accountNameMap.get(accountName.toLowerCase());
-          if (!account) {
-            for (const [key, value] of accountNameMap) {
-              if (accountName.toLowerCase().includes(key) || key.includes(accountName.toLowerCase())) {
-                account = value;
-                break;
-              }
-            }
+        }
+      }
+
+      // Get account type from CSV if available
+      if (columnMap.accountType) {
+        const typeValue = row[columnMap.accountType];
+        if (typeValue !== undefined && typeValue !== null) {
+          accountType = String(typeValue).trim();
+          accountType = accountType.charAt(0).toUpperCase() + accountType.slice(1).toLowerCase();
+          if (!ACCOUNT_TYPES.includes(accountType)) {
+            rowErrors.push(`Row ${rowNumber}: Invalid account type '${accountType}'. Must be Asset, Liability, Equity, Revenue, or Expense`);
           }
         }
       }
 
-      // If account not found, create it
+      // If account not found, create it with the specified type
       if (!account) {
+        // Determine account type - use provided type or try to infer from name
+        let finalType = accountType;
+        
+        // If no type provided, try to infer from common patterns
+        if (!finalType) {
+          const lowerName = accountName.toLowerCase();
+          if (lowerName.includes('expense') || lowerName.includes('cost') || lowerName.includes('salary') || lowerName.includes('rent')) {
+            finalType = 'Expense';
+          } else if (lowerName.includes('revenue') || lowerName.includes('income') || lowerName.includes('sales')) {
+            finalType = 'Revenue';
+          } else if (lowerName.includes('payable') || lowerName.includes('loan') || lowerName.includes('debt')) {
+            finalType = 'Liability';
+          } else if (lowerName.includes('equity') || lowerName.includes('capital') || lowerName.includes('owner')) {
+            finalType = 'Equity';
+          } else {
+            finalType = 'Asset'; // Default
+          }
+        }
+        
+        if (!ACCOUNT_TYPES.includes(finalType)) {
+          finalType = 'Asset';
+        }
+        
         const newAccountId = uuidv4();
         const newAccountCode = `A${String(accountNameMap.size + 1).padStart(4, '0')}`;
+        const normalBalance = NORMAL_BALANCES[finalType] || 'debit';
         
-        await query(
-          `INSERT INTO accounts (id, code, name, type, normal_balance, organization_id, is_active)
-           VALUES ($1, $2, $3, 'Asset', 'debit', $4, true)`,
-          [newAccountId, newAccountCode, accountName || 'Unnamed Account', orgId]
-        );
-        
-        account = {
-          id: newAccountId,
-          code: newAccountCode,
-          name: accountName || 'Unnamed Account',
-          type: 'Asset',
-          normal_balance: 'debit'
-        };
-        accountNameMap.set(accountName.toLowerCase(), account);
-        console.log(`✅ Created new account: ${newAccountCode} - ${accountName}`);
+        // Check if account with this name already exists (case insensitive)
+        const existingAccount = accountNameMap.get(accountName.toLowerCase());
+        if (existingAccount) {
+          account = existingAccount;
+          console.log(`📋 Using existing account: ${account.code} - ${account.name} (${account.type})`);
+        } else {
+          await query(
+            `INSERT INTO accounts (id, code, name, type, normal_balance, organization_id, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, true)`,
+            [newAccountId, newAccountCode, accountName, finalType, normalBalance, orgId]
+          );
+          
+          account = {
+            id: newAccountId,
+            code: newAccountCode,
+            name: accountName,
+            type: finalType,
+            normal_balance: normalBalance
+          };
+          accountNameMap.set(accountName.toLowerCase(), account);
+          console.log(`✅ Created new account: ${newAccountCode} - ${accountName} (${finalType})`);
+        }
       }
 
       // Get debit and credit
@@ -226,7 +250,6 @@ export async function POST(request: NextRequest) {
           debit = parseFloat(cleanDebit) || 0;
         }
       }
-      
       if (columnMap.credit) {
         const creditValue = row[columnMap.credit];
         if (creditValue !== undefined && creditValue !== null && creditValue !== '') {
@@ -235,7 +258,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Fallback: try reading Credit directly from row
+      // Fallback for credit
       if (credit === 0 && row['Credit'] !== undefined && row['Credit'] !== null && row['Credit'] !== '') {
         const cleanCredit = String(row['Credit']).replace(/,/g, '').replace(/₦/g, '').trim();
         credit = parseFloat(cleanCredit) || 0;
@@ -245,11 +268,9 @@ export async function POST(request: NextRequest) {
       if (debit < 0 || credit < 0) {
         rowErrors.push(`Row ${rowNumber}: Amounts must be positive`);
       }
-      
       if (debit > 0 && credit > 0) {
         rowErrors.push(`Row ${rowNumber}: Cannot have both debit and credit in the same row`);
       }
-      
       if (debit === 0 && credit === 0) {
         rowErrors.push(`Row ${rowNumber}: Either debit or credit amount is required`);
       }
@@ -268,8 +289,8 @@ export async function POST(request: NextRequest) {
         date: parsedDate,
         description: description || '',
         reference: reference,
-        account_code: account?.code || '',
-        account_name: account?.name || '',
+        account_name: account?.name || accountName || '',
+        account_type: account?.type || accountType || 'Asset',
         account_id: account?.id || null,
         debit: debit,
         credit: credit,
@@ -294,6 +315,7 @@ export async function POST(request: NextRequest) {
           date: e.date.toISOString().split('T')[0],
           description: e.description,
           account_name: e.account_name,
+          account_type: e.account_type,
           debit: e.debit,
           credit: e.credit
         }
@@ -302,7 +324,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: `${invalidEntries.length} entries have validation errors`,
-        message: 'Please fix the errors below and try again',
         errorDetails: errorDetails,
         errors: errors
       }, { status: 400 });
@@ -325,9 +346,7 @@ export async function POST(request: NextRequest) {
       if (Math.abs(totalDebit - totalCredit) > 0.01) {
         return NextResponse.json({
           success: false,
-          error: `Journal entry "${key}" is not balanced`,
-          message: `Debits: ${totalDebit}, Credits: ${totalCredit}. They must be equal.`,
-          entries: entries
+          error: `Journal entry "${key}" is not balanced. Debits: ${totalDebit}, Credits: ${totalCredit}`
         }, { status: 400 });
       }
     }
@@ -341,7 +360,6 @@ export async function POST(request: NextRequest) {
         const entryNumber = `IMP-${Date.now()}-${imported + 1}`;
         const entryId = uuidv4();
 
-        // Insert manual journal entry
         await client.query(
           `INSERT INTO manual_journal_entries (
             id, entry_number, date, description, reference, status, created_by, organization_id
@@ -409,7 +427,6 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Log audit - WITHOUT organization_id since it doesn't exist
         await client.query(
           `INSERT INTO audit_logs (id, action, entity_type, entity_id, details, created_at)
            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,

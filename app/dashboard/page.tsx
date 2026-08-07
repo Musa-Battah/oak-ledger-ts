@@ -84,7 +84,13 @@ export default function DashboardPage() {
         
         if (statsData.success) {
           setStats({
-            ...statsData.data,
+            totalRevenue: statsData.data.totalRevenue || 0,
+            outstandingInvoices: statsData.data.outstandingInvoices || 0,
+            paidInvoices: statsData.data.paidInvoices || 0,
+            totalCustomers: statsData.data.totalCustomers || 0,
+            totalExpenses: statsData.data.totalExpenses || 0,
+            outstandingBills: statsData.data.outstandingBills || 0,
+            totalSuppliers: statsData.data.totalSuppliers || 0,
             totalEmployees: payrollData.success ? payrollData.data.length || 0 : 0,
             recentPayrollAmount: payrollData.success && payrollData.data.length > 0 
               ? payrollData.data[0]?.total_net_pay || 0 
@@ -156,12 +162,12 @@ export default function DashboardPage() {
           <div className="stat-value">{stats.totalCustomers}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-title">Total Employees</div>
-          <div className="stat-value">{stats.totalEmployees}</div>
+          <div className="stat-title">Total Expenses</div>
+          <div className="stat-value">₦{stats.totalExpenses.toLocaleString()}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-title">Latest Payroll</div>
-          <div className="stat-value">₦{stats.recentPayrollAmount.toLocaleString()}</div>
+          <div className="stat-title">Total Employees</div>
+          <div className="stat-value">{stats.totalEmployees}</div>
         </div>
       </div>
 
