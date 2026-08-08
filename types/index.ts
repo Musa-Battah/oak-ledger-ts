@@ -55,11 +55,11 @@ export interface Customer {
   email?: string;
   phone?: string;
   address?: string;
+  organization_id: string;
   balance: number;
   invoice_count?: number;
   total_paid?: number;
   outstanding?: number;
-  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -70,11 +70,11 @@ export interface Supplier {
   email?: string;
   phone?: string;
   address?: string;
+  organization_id: string;
   balance: number;
   bill_count?: number;
   total_paid?: number;
   outstanding?: number;
-  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -88,12 +88,12 @@ export interface Product {
   name: string;
   description?: string;
   sku?: string;
+  organization_id: string;
   unit_price: number;
   cost?: number;
   current_stock: number;
   reorder_level: number;
   is_active: boolean;
-  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -117,6 +117,7 @@ export interface Invoice {
   id: string;
   invoice_number: string;
   customer_id: string;
+  organization_id: string;
   customer_name?: string;
   customer?: Customer;
   date: Date;
@@ -129,7 +130,6 @@ export interface Invoice {
   status: InvoiceStatus;
   notes?: string;
   items?: InvoiceItem[];
-  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -153,6 +153,7 @@ export interface Bill {
   id: string;
   bill_number: string;
   supplier_id: string;
+  organization_id: string;
   supplier_name?: string;
   supplier?: Supplier;
   date: Date;
@@ -165,7 +166,6 @@ export interface Bill {
   status: BillStatus;
   notes?: string;
   items?: BillItem[];
-  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -174,7 +174,7 @@ export interface Bill {
 // TRANSACTION & JOURNAL TYPES
 // ============================================
 
-export type TransactionType = 'invoice' | 'bill' | 'expense' | 'transfer' | 'journal';
+export type TransactionType = 'invoice' | 'bill' | 'expense' | 'transfer' | 'journal' | 'payment';
 export type TransactionStatus = 'draft' | 'posted' | 'void';
 export type JournalEntryType = 'debit' | 'credit';
 
@@ -182,11 +182,11 @@ export interface JournalEntry {
   id: string;
   transaction_id: string;
   account_id: string;
+  organization_id: string;
   account_name?: string;
   account_code?: string;
   amount: number;
   type: JournalEntryType;
-  organization_id: string;
   created_at: Date;
 }
 
@@ -195,52 +195,53 @@ export interface Transaction {
   date: Date;
   description: string;
   reference_number?: string;
+  organization_id: string;
   type: TransactionType;
   status: TransactionStatus;
   source_type?: string;
   source_id?: string;
   entries?: JournalEntry[];
-  organization_id: string;
   created_at: Date;
   updated_at: Date;
 }
 
 // ============================================
-// FORM TYPES
+// MANUAL JOURNAL ENTRY TYPES
 // ============================================
 
-export interface InvoiceFormData {
-  customer_id: string;
-  date: string;
-  due_date: string;
-  notes: string;
-  items: InvoiceFormItem[];
-}
+export type JournalEntryStatus = 'draft' | 'posted' | 'void';
 
-export interface InvoiceFormItem {
-  description: string;
-  quantity: number;
-  unit_price: number;
+export interface ManualJournalEntryLine {
+  id?: string;
+  account_id: string;
+  account_name?: string;
+  account_code?: string;
   amount: number;
+  type: 'debit' | 'credit';
+  description?: string;
 }
 
-export interface BillFormData {
-  supplier_id: string;
-  date: string;
-  due_date: string;
-  notes: string;
-  items: BillFormItem[];
-}
-
-export interface BillFormItem {
+export interface ManualJournalEntry {
+  id: string;
+  entry_number: string;
+  date: Date;
   description: string;
-  quantity: number;
-  unit_price: number;
-  amount: number;
+  reference?: string;
+  status: JournalEntryStatus;
+  created_by?: string;
+  created_by_name?: string;
+  lines: ManualJournalEntryLine[];
+  total_debits: number;
+  total_credits: number;
+  is_balanced: boolean;
+  created_at: Date;
+  updated_at: Date;
+  posted_at?: Date;
+  void_reason?: string;
 }
 
 // ============================================
-// DASHBOARD & REPORT TYPES
+// DASHBOARD STATS TYPES
 // ============================================
 
 export interface DashboardStats {
@@ -251,33 +252,8 @@ export interface DashboardStats {
   totalExpenses: number;
   outstandingBills: number;
   totalSuppliers: number;
-}
-
-export interface BalanceSheet {
-  assets: {
-    total: number;
-    items: Account[];
-  };
-  liabilities: {
-    total: number;
-    items: Account[];
-  };
-  equity: {
-    total: number;
-    items: Account[];
-  };
-}
-
-export interface ProfitLoss {
-  revenue: {
-    total: number;
-    items: Account[];
-  };
-  expenses: {
-    total: number;
-    items: Account[];
-  };
-  netIncome: number;
+  totalEmployees?: number;
+  recentPayrollAmount?: number;
 }
 
 // ============================================
@@ -411,7 +387,7 @@ export interface CashFlowReport {
 export interface ReportFilter {
   startDate?: string;
   endDate?: string;
-  period?: 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
+  period?: 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom' | 'all';
   accountType?: string;
 }
 
@@ -459,7 +435,6 @@ export interface User {
   email: string;
   role: UserRole;
   organization_id: string;
-  organization?: Organization;
   is_active: boolean;
   last_login?: Date;
   created_at: Date;
@@ -512,48 +487,6 @@ export interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-}
-
-// ============================================
-// MANUAL JOURNAL ENTRY TYPES
-// ============================================
-
-export type JournalEntryStatus = 'draft' | 'posted' | 'void';
-
-export interface ManualJournalEntryLine {
-  id?: string;
-  account_id: string;
-  account_name?: string;
-  account_code?: string;
-  amount: number;
-  type: 'debit' | 'credit';
-  description?: string;
-}
-
-export interface ManualJournalEntry {
-  id: string;
-  entry_number: string;
-  date: Date;
-  description: string;
-  reference?: string;
-  status: JournalEntryStatus;
-  created_by?: string;
-  created_by_name?: string;
-  lines: ManualJournalEntryLine[];
-  total_debits: number;
-  total_credits: number;
-  is_balanced: boolean;
-  created_at: Date;
-  updated_at: Date;
-  posted_at?: Date;
-  void_reason?: string;
-}
-
-export interface JournalEntryFormData {
-  date: string;
-  description: string;
-  reference: string;
-  lines: ManualJournalEntryLine[];
 }
 
 // ============================================
@@ -639,23 +572,6 @@ export interface PayrollTaxRate {
   is_active: boolean;
 }
 
-export interface PayrollPensionConfig {
-  id: string;
-  organization_id: string;
-  employee_contribution_rate: number;
-  employer_contribution_rate: number;
-  effective_year: number;
-  is_active: boolean;
-}
-
-export interface PayrollNHFConfig {
-  id: string;
-  organization_id: string;
-  contribution_rate: number;
-  effective_year: number;
-  is_active: boolean;
-}
-
 // ============================================
 // JOURNAL ENTRY IMPORT TYPES
 // ============================================
@@ -665,6 +581,8 @@ export interface JournalEntryImportRow {
   description: string;
   reference?: string;
   account_code: string;
+  account_name?: string;
+  account_type?: string;
   debit?: number;
   credit?: number;
   errors?: string[];

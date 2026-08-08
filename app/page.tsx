@@ -67,6 +67,12 @@ export default function HomePage() {
       linkText: 'View VAT Report'
     },
     {
+      title: 'Journal Entries',
+      description: 'Record manual journal entries and import bulk transactions',
+      link: '/accounting/journal',
+      linkText: 'View Journal'
+    },
+    {
       title: 'Customer Management',
       description: 'Maintain a complete customer database with transaction history',
       link: '/sales/customers',
@@ -77,14 +83,22 @@ export default function HomePage() {
       description: 'Manage your products and services with pricing and inventory',
       link: '/sales/products',
       linkText: 'View Products'
+    },
+    {
+      title: 'Payroll',
+      description: 'Manage employee salaries, deductions, and payments',
+      link: '/payroll',
+      linkText: 'Go to Payroll'
     }
   ];
 
   const quickActions = [
     { label: 'New Invoice', href: '/sales/invoices/new', color: 'primary' },
     { label: 'New Bill', href: '/purchases/bills/new', color: 'secondary' },
-    { label: 'Dashboard', href: '/dashboard', color: 'info' },
-    { label: 'Reports', href: '/reports/profit-loss', color: 'success' }
+    { label: 'New Journal Entry', href: '/accounting/journal/new', color: 'info' },
+    { label: 'Import Data', href: '/accounting/journal/import', color: 'warning' },
+    { label: 'Dashboard', href: '/dashboard', color: 'success' },
+    { label: 'Payroll', href: '/payroll', color: 'danger' }
   ];
 
   if (loading) {
@@ -98,9 +112,8 @@ export default function HomePage() {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            min-height: 60vh;
             gap: 1rem;
-            background: var(--bg-primary);
           }
           .spinner {
             width: 48px;
@@ -120,7 +133,7 @@ export default function HomePage() {
 
   return (
     <div className="home-container">
-      {/* Hero Section with Full Page Background Image - Stretched */}
+      {/* Hero Section with Background Image */}
       <div className="hero-section">
         <div className="hero-overlay"></div>
         <div className="hero-content-wrapper">
@@ -204,21 +217,15 @@ export default function HomePage() {
           <p>
             Oak Ledger is designed specifically for the Nigerian business environment 
             with support for Naira, 7.5% VAT, FIRS-compliant reporting, 
-            and IFRS financial statements.
+            IFRS financial statements, and seamless journal entry management.
           </p>
           <div className="nigeria-features">
-            <div className="nigeria-feature">
-              <span>Naira Currency Support</span>
-            </div>
-            <div className="nigeria-feature">
-              <span>7.5% VAT Calculation</span>
-            </div>
-            <div className="nigeria-feature">
-              <span>FIRS-Compliant Reports</span>
-            </div>
-            <div className="nigeria-feature">
-              <span>IFRS Financial Statements</span>
-            </div>
+            <div className="nigeria-feature">Naira Currency Support</div>
+            <div className="nigeria-feature">7.5% VAT Calculation</div>
+            <div className="nigeria-feature">FIRS-Compliant Reports</div>
+            <div className="nigeria-feature">IFRS Financial Statements</div>
+            <div className="nigeria-feature">Nigerian Tax Compliance</div>
+            <div className="nigeria-feature">Local Business Focus</div>
           </div>
         </div>
       </div>
@@ -229,7 +236,6 @@ export default function HomePage() {
           min-height: 100vh;
         }
 
-        /* Hero Section with Full Page Background Image - Stretched */
         .hero-section {
           position: relative;
           min-height: 100vh;
@@ -242,7 +248,6 @@ export default function HomePage() {
           align-items: center;
           padding: 4rem 2rem;
           margin-bottom: 2rem;
-          /* Force image to cover the entire area */
           background-attachment: scroll;
         }
         .hero-overlay {
@@ -328,7 +333,6 @@ export default function HomePage() {
           background: rgba(255, 255, 255, 0.1);
         }
 
-        /* Quick Actions */
         .quick-actions {
           max-width: 1200px;
           margin: 0 auto 2rem;
@@ -388,8 +392,23 @@ export default function HomePage() {
           background: var(--success);
           color: white;
         }
+        .quick-action-btn.warning {
+          background: var(--warning-dim);
+          color: var(--warning);
+        }
+        .quick-action-btn.warning:hover {
+          background: var(--warning);
+          color: white;
+        }
+        .quick-action-btn.danger {
+          background: var(--danger-dim);
+          color: var(--danger);
+        }
+        .quick-action-btn.danger:hover {
+          background: var(--danger);
+          color: white;
+        }
 
-        /* Features Section */
         .features-section {
           max-width: 1200px;
           margin: 0 auto 2rem;
@@ -443,7 +462,6 @@ export default function HomePage() {
           text-decoration: underline;
         }
 
-        /* Nigeria Section */
         .nigeria-section {
           max-width: 1200px;
           margin: 0 auto 2rem;
@@ -491,7 +509,6 @@ export default function HomePage() {
           color: var(--text-secondary);
         }
 
-        /* Responsive */
         @media (max-width: 768px) {
           .hero-section {
             min-height: 80vh;
