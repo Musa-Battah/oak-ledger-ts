@@ -62,35 +62,34 @@ export async function GET() {
       LIMIT 5
     `, [orgId]);
 
-    // Get accounts receivable aging - from invoices
+    // Get accounts receivable aging - FIXED: Use subquery approach
     const agingData = await query(`
+      WITH aging_data AS (
+        SELECT 
+          balance_due,
+          CASE 
+            WHEN due_date >= CURRENT_DATE THEN 'Not Due'
+            WHEN due_date >= CURRENT_DATE - INTERVAL '30 days' THEN '1-30 days'
+            WHEN due_date >= CURRENT_DATE - INTERVAL '60 days' THEN '31-60 days'
+            WHEN due_date >= CURRENT_DATE - INTERVAL '90 days' THEN '61-90 days'
+            ELSE '90+ days'
+          END as aging_range
+        FROM invoices
+        WHERE status IN ('sent', 'overdue')
+          AND balance_due > 0
+          AND organization_id = $1
+      )
       SELECT 
-        CASE 
-          WHEN due_date >= CURRENT_DATE THEN 'Not Due'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '30 days' THEN '1-30 days'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '60 days' THEN '31-60 days'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '90 days' THEN '61-90 days'
-          ELSE '90+ days'
-        END as aging_range,
+        aging_range,
         COALESCE(SUM(balance_due), 0) as amount
-      FROM invoices
-      WHERE status IN ('sent', 'overdue')
-        AND balance_due > 0
-        AND organization_id = $1
-      GROUP BY 
-        CASE 
-          WHEN due_date >= CURRENT_DATE THEN 'Not Due'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '30 days' THEN '1-30 days'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '60 days' THEN '31-60 days'
-          WHEN due_date >= CURRENT_DATE - INTERVAL '90 days' THEN '61-90 days'
-          ELSE '90+ days'
-        END
+      FROM aging_data
+      GROUP BY aging_range
       ORDER BY 
-        CASE 
-          WHEN due_date >= CURRENT_DATE THEN 1
-          WHEN due_date >= CURRENT_DATE - INTERVAL '30 days' THEN 2
-          WHEN due_date >= CURRENT_DATE - INTERVAL '60 days' THEN 3
-          WHEN due_date >= CURRENT_DATE - INTERVAL '90 days' THEN 4
+        CASE aging_range
+          WHEN 'Not Due' THEN 1
+          WHEN '1-30 days' THEN 2
+          WHEN '31-60 days' THEN 3
+          WHEN '61-90 days' THEN 4
           ELSE 5
         END
     `, [orgId]);

@@ -5,25 +5,45 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
-interface ImportPreview {
-  row: number;
-  date: string;
+interface ValidationGroup {
+  groupKey: string;
   description: string;
   reference: string;
-  account_name: string;
-  debit: number;
-  credit: number;
+  date: string;
+  totalDebit: number;
+  totalCredit: number;
   isValid: boolean;
   errors: string[];
+  entries: Array<{
+    row: number;
+    account_name: string;
+    account_type: string;
+    debit: number;
+    credit: number;
+  }>;
+}
+
+interface ValidationSummary {
+  totalGroups: number;
+  validGroups: number;
+  invalidGroups: number;
+  allValid: boolean;
 }
 
 export default function ImportJournalPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<ImportPreview[]>([]);
-  const [importResult, setImportResult] = useState<{ imported: number; message: string } | null>(null);
   const [step, setStep] = useState<'upload' | 'preview' | 'result'>('upload');
+  const [validationResult, setValidationResult] = useState<{
+    groups: ValidationGroup[];
+    summary: ValidationSummary;
+  } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    totalGroups: number;
+    message: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,7 +51,7 @@ export default function ImportJournalPage() {
     if (selected) {
       setFile(selected);
       setError(null);
-      setPreview([]);
+      setValidationResult(null);
       setImportResult(null);
       setStep('upload');
     }
@@ -48,6 +68,7 @@ export default function ImportJournalPage() {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('preview', 'true');
 
     try {
       const res = await fetch('/api/journal/import', {
@@ -57,13 +78,24 @@ export default function ImportJournalPage() {
 
       const data = await res.json();
 
-      if (res.ok) {
-        setPreview(data.entries || []);
-        setStep('preview');
-        toast.success(`File validated: ${data.entries?.length || 0} entries found`);
+      if (res.ok && data.success) {
+        if (data.preview) {
+          setValidationResult({
+            groups: data.groups || [],
+            summary: data.summary || { totalGroups: 0, validGroups: 0, invalidGroups: 0, allValid: false }
+          });
+          setStep('preview');
+          
+          if (data.summary.allValid) {
+            toast.success(`✅ All ${data.summary.totalGroups} journal entries are valid!`);
+          } else {
+            toast.error(`⚠️ ${data.summary.invalidGroups} journal entries have issues`);
+          }
+        } else {
+          toast.error('Unexpected response from server');
+        }
       } else {
         setError(data.error || 'Validation failed');
-        setPreview(data.entries || []);
         toast.error(data.error || 'Validation failed');
       }
     } catch (error) {
@@ -81,6 +113,7 @@ export default function ImportJournalPage() {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('preview', 'false');
 
     try {
       const res = await fetch('/api/journal/import', {
@@ -90,9 +123,10 @@ export default function ImportJournalPage() {
 
       const data = await res.json();
 
-      if (res.ok) {
+      if (res.ok && data.success) {
         setImportResult({
           imported: data.imported || 0,
+          totalGroups: data.totalGroups || 0,
           message: data.message || 'Import completed'
         });
         setStep('result');
@@ -110,7 +144,7 @@ export default function ImportJournalPage() {
 
   const resetImport = () => {
     setFile(null);
-    setPreview([]);
+    setValidationResult(null);
     setImportResult(null);
     setStep('upload');
     setError(null);
@@ -118,12 +152,20 @@ export default function ImportJournalPage() {
     if (fileInput) fileInput.value = '';
   };
 
+  const formatNaira = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
   return (
     <div className="container">
       <div className="page-header">
         <div className="page-title">
           <h1>Import Journal Entries</h1>
-          <p>Import journal entries from CSV or Excel files</p>
+          <p>Pre-validate and import journal entries from CSV or Excel files</p>
         </div>
         <div className="action-buttons">
           <Link href="/accounting/journal">
@@ -139,16 +181,16 @@ export default function ImportJournalPage() {
             <div className="import-info">
               <h3>File Format Requirements</h3>
               <ul>
-                <li><strong>Required columns:</strong> Date, Description, Account Name, Debit or Credit</li>
-                <li><strong>Optional columns:</strong> Reference</li>
+                <li><strong>Required columns:</strong> Date, Description, Account Name, Debit, Credit</li>
+                <li><strong>Optional columns:</strong> Reference, Account Type</li>
                 <li><strong>Date format:</strong> YYYY-MM-DD</li>
-                <li><strong>Account Name:</strong> Must match existing account or will be created</li>
-                <li><strong>Balance:</strong> Total debits must equal total credits for each journal entry</li>
+                <li><strong>Grouping:</strong> Rows with the same Description are grouped into one journal entry</li>
+                <li><strong>Balance:</strong> Each group must have equal Debits and Credits</li>
               </ul>
               <div className="template-download">
-                <a href="/templates/journal_template.csv" download>
+                <Link href="/api/templates/journal" download>
                   <button className="btn-secondary">📄 Download Template</button>
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -193,11 +235,33 @@ export default function ImportJournalPage() {
         )}
 
         {/* Step 2: Preview */}
-        {step === 'preview' && (
+        {step === 'preview' && validationResult && (
           <div>
             <div className="preview-header">
               <h3>Preview Journal Entries</h3>
-              <p>Review the entries below. Only valid entries will be imported.</p>
+              <p>Review the validated entries below.</p>
+              
+              <div className="preview-summary-stats">
+                <div className="stat-item">
+                  <span className="stat-label">Total Entries</span>
+                  <span className="stat-value">{validationResult.summary.totalGroups}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Valid</span>
+                  <span className="stat-value success">{validationResult.summary.validGroups}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Invalid</span>
+                  <span className="stat-value danger">{validationResult.summary.invalidGroups}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Status</span>
+                  <span className={`stat-value ${validationResult.summary.allValid ? 'success' : 'danger'}`}>
+                    {validationResult.summary.allValid ? '✅ All Valid' : '❌ Has Errors'}
+                  </span>
+                </div>
+              </div>
+
               {error && (
                 <div className="import-error">
                   <strong>Validation Errors Found:</strong> {error}
@@ -209,31 +273,29 @@ export default function ImportJournalPage() {
               <table className="preview-table">
                 <thead>
                   <tr>
-                    <th>Row</th>
+                    <th>#</th>
                     <th>Date</th>
                     <th>Description</th>
                     <th>Reference</th>
-                    <th>Account</th>
-                    <th>Debit</th>
-                    <th>Credit</th>
+                    <th>Debit Total</th>
+                    <th>Credit Total</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.map((entry) => (
-                    <tr key={entry.row} className={entry.isValid ? 'valid' : 'invalid'}>
-                      <td>{entry.row}</td>
-                      <td>{entry.date}</td>
-                      <td>{entry.description}</td>
-                      <td>{entry.reference || '-'}</td>
-                      <td>{entry.account_name}</td>
-                      <td>{entry.debit > 0 ? `₦${entry.debit.toLocaleString()}` : '-'}</td>
-                      <td>{entry.credit > 0 ? `₦${entry.credit.toLocaleString()}` : '-'}</td>
+                  {validationResult.groups.map((group, index) => (
+                    <tr key={group.groupKey} className={group.isValid ? 'valid' : 'invalid'}>
+                      <td>{index + 1}</td>
+                      <td>{new Date(group.date).toLocaleDateString()}</td>
+                      <td>{group.description}</td>
+                      <td>{group.reference || '-'}</td>
+                      <td>{formatNaira(group.totalDebit)}</td>
+                      <td>{formatNaira(group.totalCredit)}</td>
                       <td>
-                        {entry.isValid ? (
-                          <span className="badge badge-success">Valid</span>
+                        {group.isValid ? (
+                          <span className="badge badge-success">✅ Balanced</span>
                         ) : (
-                          <span className="badge badge-danger">Invalid</span>
+                          <span className="badge badge-danger">❌ Unbalanced</span>
                         )}
                       </td>
                     </tr>
@@ -242,11 +304,23 @@ export default function ImportJournalPage() {
               </table>
             </div>
 
-            <div className="preview-summary">
-              <span>Total Entries: {preview.length}</span>
-              <span className="valid-count">Valid: {preview.filter(e => e.isValid).length}</span>
-              <span className="invalid-count">Invalid: {preview.filter(e => !e.isValid).length}</span>
-            </div>
+            {!validationResult.summary.allValid && (
+              <div className="preview-errors">
+                <h4>Errors Found:</h4>
+                <ul>
+                  {validationResult.groups
+                    .filter(g => !g.isValid)
+                    .map((group) => (
+                      <li key={group.groupKey}>
+                        <strong>{group.description}</strong>: 
+                        Debits {formatNaira(group.totalDebit)}, 
+                        Credits {formatNaira(group.totalCredit)}, 
+                        Difference {formatNaira(group.totalDebit - group.totalCredit)}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
 
             <div className="import-actions">
               <button
@@ -258,9 +332,9 @@ export default function ImportJournalPage() {
               <button
                 className="btn-primary"
                 onClick={handleConfirmImport}
-                disabled={loading || preview.every(e => !e.isValid)}
+                disabled={loading || !validationResult.summary.allValid}
               >
-                {loading ? 'Importing...' : `Import ${preview.filter(e => e.isValid).length} Entries`}
+                {loading ? 'Importing...' : `Import ${validationResult.summary.totalGroups} Entries`}
               </button>
             </div>
           </div>
@@ -279,6 +353,10 @@ export default function ImportJournalPage() {
               <div className="stat-item">
                 <span className="stat-label">Imported</span>
                 <span className="stat-value success">{importResult.imported}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Total Groups</span>
+                <span className="stat-value">{importResult.totalGroups}</span>
               </div>
             </div>
 
@@ -369,6 +447,36 @@ export default function ImportJournalPage() {
           justify-content: flex-end;
           margin-top: 1.5rem;
         }
+        .preview-header {
+          margin-bottom: 1.5rem;
+        }
+        .preview-summary-stats {
+          display: flex;
+          gap: 2rem;
+          padding: 1rem;
+          background: var(--bg-secondary);
+          border-radius: 8px;
+          margin: 1rem 0;
+        }
+        .stat-item {
+          display: flex;
+          flex-direction: column;
+        }
+        .stat-label {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          text-transform: uppercase;
+        }
+        .stat-value {
+          font-size: 1.25rem;
+          font-weight: 600;
+        }
+        .stat-value.success {
+          color: var(--success);
+        }
+        .stat-value.danger {
+          color: var(--danger);
+        }
         .preview-table {
           width: 100%;
           border-collapse: collapse;
@@ -392,19 +500,15 @@ export default function ImportJournalPage() {
         .preview-table tr.invalid {
           border-left: 3px solid var(--danger);
         }
-        .preview-summary {
-          display: flex;
-          gap: 2rem;
-          padding: 1rem;
-          background: var(--bg-secondary);
-          border-radius: 8px;
+        .preview-errors {
           margin: 1rem 0;
-        }
-        .valid-count {
-          color: var(--success);
-        }
-        .invalid-count {
+          padding: 1rem;
+          background: var(--danger-dim);
+          border-radius: 8px;
           color: var(--danger);
+        }
+        .preview-errors ul {
+          margin: 0.5rem 0 0 1.5rem;
         }
         .result-header {
           text-align: center;
@@ -424,25 +528,6 @@ export default function ImportJournalPage() {
           gap: 4rem;
           padding: 2rem;
         }
-        .stat-item {
-          text-align: center;
-        }
-        .stat-label {
-          display: block;
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          text-transform: uppercase;
-        }
-        .stat-value {
-          font-size: 2rem;
-          font-weight: 700;
-        }
-        .stat-value.success {
-          color: var(--success);
-        }
-        .stat-value.warning {
-          color: var(--warning);
-        }
         .badge-success {
           background: var(--success-dim);
           color: var(--success);
@@ -452,15 +537,15 @@ export default function ImportJournalPage() {
           color: var(--danger);
         }
         @media (max-width: 768px) {
-          .preview-table {
-            font-size: 0.75rem;
-          }
-          .preview-table th,
-          .preview-table td {
-            padding: 0.5rem;
+          .preview-summary-stats {
+            flex-wrap: wrap;
+            gap: 1rem;
           }
           .result-stats {
             gap: 2rem;
+          }
+          .preview-table {
+            font-size: 0.75rem;
           }
         }
       `}</style>
