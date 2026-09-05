@@ -1,17 +1,19 @@
 import { query, withTransaction } from './db';
 import { v4 as uuidv4 } from 'uuid';
 
+type AccountType = 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+
 interface Account {
   id: string;
   code: string;
   name: string;
-  type: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+  type: AccountType;
   normal_balance: 'debit' | 'credit';
 }
 
 interface JournalLine {
   account_name: string;
-  account_type?: 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+  account_type?: AccountType;
   amount: number;
   type: 'debit' | 'credit';
   description?: string;
@@ -141,7 +143,7 @@ export class AccountingEngine {
    */
   private static async getOrCreateAccount(
     name: string,
-    type: string,
+    type: AccountType,
     organization_id: string,
     client: any
   ): Promise<Account> {
@@ -152,7 +154,13 @@ export class AccountingEngine {
     );
 
     if (existing.rows.length > 0) {
-      return existing.rows[0];
+      return {
+        id: existing.rows[0].id,
+        code: existing.rows[0].code,
+        name: existing.rows[0].name,
+        type: existing.rows[0].type as AccountType,
+        normal_balance: existing.rows[0].normal_balance
+      };
     }
 
     // Create new account
@@ -167,14 +175,20 @@ export class AccountingEngine {
       [id, code, name, type, normalBalance, organization_id]
     );
 
-    return { id, code, name, type, normal_balance: normalBalance };
+    return {
+      id,
+      code,
+      name,
+      type,
+      normal_balance: normalBalance
+    };
   }
 
   /**
    * Get code prefix based on account type
    */
-  private static getCodePrefix(type: string): string {
-    const map: Record<string, string> = {
+  private static getCodePrefix(type: AccountType): string {
+    const map: Record<AccountType, string> = {
       'Asset': '1',
       'Liability': '2',
       'Equity': '3',
@@ -203,20 +217,26 @@ export class AccountingEngine {
   /**
    * Infer account type from name
    */
-  private static inferAccountType(name: string): 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense' {
+  private static inferAccountType(name: string): AccountType {
     const lower = name.toLowerCase();
     if (lower.includes('expense') || lower.includes('cost') || lower.includes('salary') || 
         lower.includes('rent') || lower.includes('utility') || lower.includes('supplies') ||
-        lower.includes('marketing') || lower.includes('insurance') || lower.includes('depreciation')) {
+        lower.includes('marketing') || lower.includes('insurance') || lower.includes('depreciation') ||
+        lower.includes('office') || lower.includes('maintenance') || lower.includes('legal') ||
+        lower.includes('training') || lower.includes('software') || lower.includes('internet') ||
+        lower.includes('telephone') || lower.includes('professional') || lower.includes('development')) {
       return 'Expense';
     }
-    if (lower.includes('revenue') || lower.includes('income') || lower.includes('sales') || lower.includes('service')) {
+    if (lower.includes('revenue') || lower.includes('income') || lower.includes('sales') || lower.includes('service') ||
+        lower.includes('consulting') || lower.includes('interest') || lower.includes('fees')) {
       return 'Revenue';
     }
-    if (lower.includes('payable') || lower.includes('loan') || lower.includes('debt') || lower.includes('accrued')) {
+    if (lower.includes('payable') || lower.includes('loan') || lower.includes('debt') || lower.includes('accrued') ||
+        lower.includes('tax') || lower.includes('pension') || lower.includes('paye') || lower.includes('vat')) {
       return 'Liability';
     }
-    if (lower.includes('equity') || lower.includes('capital') || lower.includes('owner') || lower.includes('retained')) {
+    if (lower.includes('equity') || lower.includes('capital') || lower.includes('owner') || lower.includes('retained') ||
+        lower.includes('earnings') || lower.includes('draw') || lower.includes('contribution')) {
       return 'Equity';
     }
     return 'Asset';
